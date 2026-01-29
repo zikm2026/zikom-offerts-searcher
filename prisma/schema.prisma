@@ -1,0 +1,43 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model WatchedLaptop {
+  id              String   @id @default(uuid())
+  model           String
+  maxPriceWorst   String?
+  maxPriceBest    String?
+  ramFrom         String?
+  ramTo           String?
+  storageFrom     String?
+  storageTo       String?
+  gradeFrom       String?
+  gradeTo         String?
+  graphicsCard    String?  // Opcjonalna karta graficzna (np. "NVIDIA RTX 3060", "AMD Radeon RX 6600")
+  matchThreshold  Int?     @default(90) // Procent dopasowania (0-100), domyślnie 90%
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("watched_laptops")
+}
+
+model EmailStat {
+  id          String   @id @default(uuid())
+  processedAt DateTime @default(now())
+  status      String   // 'processed', 'accepted', 'rejected'
+  reason      String?  // powód odrzucenia (opcjonalnie)
+  subject     String?
+  from        String?
+
+  @@map("email_stats")
+  @@index([processedAt])
+  @@index([status])
+}
