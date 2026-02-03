@@ -1,9 +1,9 @@
 import { EventEmitter } from 'events';
-import { EmailServiceConfig } from '../../types/email';
+import { EmailServiceConfig, EmailMessage, AnalyzedEmail } from '../../types/email';
 import logger from '../../utils/logger';
-import GeminiService from '../geminiService';
+import { GeminiService } from '../gemini';
 import ExcelParserService from '../excelParserService';
-import LaptopMatcherService from '../laptopMatcherService';
+import { LaptopMatcherService } from '../laptopMatcher';
 import NotificationService from '../notificationService';
 import EmailStatsService from '../emailStatsService';
 import { ImapConnection } from './imap/ImapConnection';
@@ -30,6 +30,7 @@ class EmailService extends EventEmitter {
   private reconnectManager: ImapReconnectManager;
   private emailProcessor: EmailProcessor;
   private checkInterval: NodeJS.Timeout | null = null;
+  private isChecking = false;
 
   constructor(
     config: EmailServiceConfig,
@@ -159,23 +160,32 @@ class EmailService extends EventEmitter {
   }
 
   private async checkForNewMessages(): Promise<void> {
+    if (this.isChecking) {
+      logger.debug('Check already in progress, skipping this cycle');
+      return;
+    }
     try {
       if (!this.messageFetcher) {
         logger.warn('Message fetcher not initialized');
         return;
       }
 
+      this.isChecking = true;
       const messages = await this.messageFetcher.fetchNewMessages();
 
       if (messages.length > 0) {
         logger.info(`Found ${messages.length} new email(s)`);
 
+        const timeoutMs = this.config.processTimeoutMs ?? 120000;
+
         for (const message of messages) {
           console.log('New Mail');
           logger.info(`📧 New email from: ${message.from}, subject: ${message.subject}`);
 
-          const analyzedMessage = await this.emailProcessor.processEmail(message);
-          this.emit('newMail', analyzedMessage);
+          const analyzedMessage = await this.processEmailWithTimeout(message, timeoutMs);
+          if (analyzedMessage !== null) {
+            this.emit('newMail', analyzedMessage);
+          }
         }
       } else {
         logger.debug('No new emails found');
@@ -183,6 +193,32 @@ class EmailService extends EventEmitter {
     } catch (error) {
       logger.error('Error checking for new messages:', error);
       throw error;
+    } finally {
+      this.isChecking = false;
+    }
+  }
+  
+  private async processEmailWithTimeout(
+    message: EmailMessage,
+    timeoutMs: number
+  ): Promise<AnalyzedEmail | null> {
+    const timeoutPromise = new Promise<null>((resolve) =>
+      setTimeout(() => resolve(null), timeoutMs)
+    );
+    try {
+      const result = await Promise.race([
+        this.emailProcessor.processEmail(message),
+        timeoutPromise,
+      ]);
+      if (result === null) {
+        logger.warn(
+          `⏱️ Przetwarzanie maila przerwane (timeout ${timeoutMs / 1000}s): ${message.subject}`
+        );
+      }
+      return result;
+    } catch (error) {
+      logger.error(`Error processing email "${message.subject}":`, error);
+      return null;
     }
   }
 

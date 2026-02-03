@@ -39,7 +39,7 @@ export class ImapConnection extends EventEmitter {
         host: this.config.host,
         port: this.config.port,
         tls: this.config.tls,
-        tlsOptions: { rejectUnauthorized: false },
+        tlsOptions: { rejectUnauthorized: process.env.NODE_ENV === 'production' },
         debug: undefined,
       });
 

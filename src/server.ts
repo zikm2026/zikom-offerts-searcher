@@ -2,7 +2,7 @@ import app from './app';
 import config from './config/index';
 import logger from '@utils/logger';
 import { EmailService } from './services/email';
-import GeminiService from './services/geminiService';
+import { GeminiService } from './services/gemini';
 import NotificationService from './services/notificationService';
 import { AnalyzedEmail } from './types/email';
 import prisma from './lib/prisma';
@@ -78,7 +78,8 @@ const server = app.listen(config.port, () => {
   logger.info(`API version: ${config.apiVersion}`);
   
   if (config.email) {
-    logger.info(`📧 Email service configured for: ${config.email.user}`);
+    const mask = config.env === 'production' ? `${config.email.user.slice(0, 3)}***@***` : config.email.user;
+    logger.info(`📧 Email service configured for: ${mask}`);
   } else {
     logger.warn('📧 Email service not configured. Set EMAIL_USER and EMAIL_PASSWORD in .env');
   }

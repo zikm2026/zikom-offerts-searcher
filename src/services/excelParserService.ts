@@ -1,7 +1,7 @@
 import * as XLSX from 'xlsx';
 import { ExcelData } from '../types/email';
 import logger from '../utils/logger';
-import GeminiService from './geminiService';
+import { GeminiService } from './gemini';
 
 class ExcelParserService {
   private geminiService: GeminiService | null = null;

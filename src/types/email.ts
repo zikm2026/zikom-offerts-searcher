@@ -14,6 +14,7 @@ export interface EmailServiceConfig {
   port: number;
   tls: boolean;
   checkInterval: number;
+  processTimeoutMs?: number;
 }
 
 export interface OfferAnalysis {

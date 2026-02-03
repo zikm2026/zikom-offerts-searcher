@@ -1,6 +1,6 @@
 import { ILaptopMatcher } from '../interfaces/ILaptopMatcher';
 import { ExcelData, EmailMatchResult } from '../../../types/email';
-import LaptopMatcherService from '../../laptopMatcherService';
+import { LaptopMatcherService } from '../../laptopMatcher';
 
 export class LaptopMatcherAdapter implements ILaptopMatcher {
   constructor(private laptopMatcherService: LaptopMatcherService) {}

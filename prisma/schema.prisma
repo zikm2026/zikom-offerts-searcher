@@ -11,22 +11,28 @@ datasource db {
 }
 
 model WatchedLaptop {
-  id              String   @id @default(uuid())
-  model           String
-  maxPriceWorst   String?
-  maxPriceBest    String?
-  ramFrom         String?
-  ramTo           String?
-  storageFrom     String?
-  storageTo       String?
-  gradeFrom       String?
-  gradeTo         String?
-  graphicsCard    String?  // Opcjonalna karta graficzna (np. "NVIDIA RTX 3060", "AMD Radeon RX 6600")
-  matchThreshold  Int?     @default(90) // Procent dopasowania (0-100), domyślnie 90%
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id             String   @id @default(uuid())
+  model          String
+  maxPriceWorst  String?
+  maxPriceBest   String?
+  ramFrom        String?
+  ramTo          String?
+  storageFrom    String?
+  storageTo      String?
+  gradeFrom      String?
+  gradeTo        String?
+  graphicsCard   String?  // Opcjonalna karta graficzna (np. "NVIDIA RTX 3060", "AMD Radeon RX 6600")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   @@map("watched_laptops")
+}
+
+model AppSetting {
+  id    String @id @default(uuid())
+  key   String @unique
+  value String
+  @@map("app_settings")
 }
 
 model EmailStat {

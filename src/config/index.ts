@@ -9,6 +9,7 @@ interface EmailConfig {
   port: number;
   tls: boolean;
   checkInterval: number;
+  processTimeoutMs: number;
 }
 
 interface GeminiConfig {
@@ -27,6 +28,11 @@ export interface NtfyConfig {
   enabled: boolean;
 }
 
+export interface AdminConfig {
+  username: string;
+  password: string;
+}
+
 interface Config {
   env: string;
   port: number;
@@ -39,9 +45,22 @@ interface Config {
     secret: string;
     expiresIn: string;
   };
+  admin: AdminConfig;
   email?: EmailConfig;
   gemini?: GeminiConfig;
   ntfy?: NtfyConfig;
+}
+
+const isProd = process.env.NODE_ENV === 'production';
+const adminUsername = process.env.ADMIN_USERNAME || 'admin';
+const adminPassword = process.env.ADMIN_PASSWORD || 'admin123';
+
+if (isProd && (!process.env.DATABASE_URL || process.env.DATABASE_URL.length < 10)) {
+  throw new Error('Production requires DATABASE_URL to be set in environment');
+}
+
+if (isProd && adminPassword === 'admin123') {
+  console.warn('⚠️  SECURITY: Using default ADMIN_PASSWORD in production. Set ADMIN_PASSWORD in .env');
 }
 
 const config: Config = {
@@ -49,12 +68,14 @@ const config: Config = {
   port: parseInt(process.env.PORT || '3000', 10),
   apiVersion: process.env.API_VERSION || 'v1',
   cors: {
-    origin: process.env.CORS_ORIGIN || '*',
+    origin: process.env.CORS_ORIGIN || (isProd ? 'http://localhost:3000' : '*'),
+  },
+  admin: {
+    username: adminUsername,
+    password: adminPassword,
   },
   database: process.env.DATABASE_URL
-    ? {
-        url: process.env.DATABASE_URL,
-      }
+    ? { url: process.env.DATABASE_URL }
     : undefined,
   jwt: process.env.JWT_SECRET
     ? {
@@ -63,7 +84,9 @@ const config: Config = {
       }
     : undefined,
   email:
-    process.env.EMAIL_USER && process.env.EMAIL_PASSWORD
+    process.env.ENABLE_EMAIL_SERVICE !== 'false' &&
+    process.env.EMAIL_USER &&
+    process.env.EMAIL_PASSWORD
       ? {
           user: process.env.EMAIL_USER,
           password: process.env.EMAIL_PASSWORD,
@@ -72,6 +95,10 @@ const config: Config = {
           tls: process.env.EMAIL_TLS !== 'false',
           checkInterval: parseInt(
             process.env.EMAIL_CHECK_INTERVAL || '60000',
+            10
+          ),
+          processTimeoutMs: parseInt(
+            process.env.EMAIL_PROCESS_TIMEOUT_MS || '120000',
             10
           ),
         }

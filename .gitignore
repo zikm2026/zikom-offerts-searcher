@@ -1,7 +1,8 @@
 # Dependencies
 node_modules/
-package-lock.json
-yarn.lock
+# package-lock.json – trzymaj w repo (reprodukowalne buildy, CI)
+# yarn.lock – odkomentuj jeśli używasz Yarn
+# yarn.lock
 
 # Build output
 dist/

@@ -1,4 +1,5 @@
 import { NextFunction, Request, Response } from 'express';
+import logger from '../utils/logger';
 
 export interface AppError extends Error {
   statusCode?: number;
@@ -25,6 +26,12 @@ export const errorHandler = (
 ): void => {
   const statusCode = err.statusCode || 500;
   const message = err.message || 'Internal Server Error';
+
+  if (statusCode >= 500) {
+    logger.error('Unhandled error:', err);
+  } else {
+    logger.warn(`Client error ${statusCode}: ${message}`);
+  }
 
   res.status(statusCode).json({
     success: false,

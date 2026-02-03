@@ -6,7 +6,7 @@ import { ILaptopMatcher } from '../interfaces/ILaptopMatcher';
 import { INotificationService } from '../interfaces/INotificationService';
 import { IEmailStatsService } from '../interfaces/IEmailStatsService';
 import { IEmailLogger } from '../interfaces/IEmailLogger';
-import GeminiService from '../../../services/geminiService';
+import { GeminiService } from '../../../services/gemini';
 
 export interface ProcessResult {
   shouldNotify: boolean;
@@ -47,27 +47,50 @@ export class EmailProcessor {
     return analyzedMessage;
   }
 
+  private isLaptopOffer(analysis: NonNullable<AnalyzedEmail['analysis']>): boolean {
+    const category = (analysis.category || '').toLowerCase();
+    const productType = (analysis.details?.productType || '').toLowerCase();
+    if (category === 'laptop' || category === 'laptopy') return true;
+    if (productType === 'laptop' || productType === 'laptopy') return true;
+    const notLaptop =
+      category === 'accessories' ||
+      category === 'other' ||
+      /monitor|monitory|akcesoria|accessories|komponenty|components/.test(productType);
+    return !notLaptop && (category === 'desktop' ? false : true);
+  }
+
   private async analyzeWithGemini(message: EmailMessage): Promise<AnalyzedEmail> {
     logger.debug('🤖 Analyzing email with Gemini AI...');
     const analysis = await this.emailAnalyzer!.analyzeEmailOffer(message);
     const analyzedMessage: AnalyzedEmail = { ...message, analysis };
 
-    if (analysis.isOffer) {
-      logger.debug(`🎯 OFFER DETECTED! Confidence: ${analysis.confidence}%`);
-      logger.debug(`📱 Category: ${analysis.category || 'unknown'}`);
-
-      await this.processExcelAttachments(analyzedMessage, message);
-    } else {
+    if (!analysis.isOffer) {
       logger.debug(`❌ Not a laptop offer (confidence: ${analysis.confidence}%)`);
-
       await this.statsService.recordEmailStat({
         status: 'rejected',
         reason: `Nie jest ofertą laptopów (confidence: ${analysis.confidence}%)`,
         subject: message.subject,
         from: message.from,
       });
+      return analyzedMessage;
     }
 
+    logger.debug(`🎯 OFFER DETECTED! Confidence: ${analysis.confidence}%`);
+    logger.debug(`📱 Category: ${analysis.category || 'unknown'}`);
+
+    if (!this.isLaptopOffer(analysis)) {
+      logger.info(`⏭️ Oferta nie dotyczy laptopów (${analysis.category || '?'} / ${analysis.details?.productType || '?'}) – pomijam`);
+      await this.statsService.recordEmailStat({
+        status: 'rejected',
+        reason: 'Oferta nie dotyczy laptopów (monitory/akcesoria/inne)',
+        subject: message.subject,
+        from: message.from,
+      });
+      analyzedMessage.analysis = { ...analysis, isOffer: false };
+      return analyzedMessage;
+    }
+
+    await this.processExcelAttachments(analyzedMessage, message);
     return analyzedMessage;
   }
 
@@ -114,15 +137,30 @@ export class EmailProcessor {
 
     logger.debug(`📊 Found ${excelAttachments.length} Excel attachment(s), parsing...`);
 
+    let anySucceeded = false;
     for (const excelAtt of excelAttachments) {
       try {
         const result = await this.processExcelAttachment(excelAtt, message);
         if (result) {
           analyzedMessage.excelData = result.excelData;
           await this.handleMatchResult(result, message);
+          anySucceeded = true;
         }
       } catch (excelError) {
         logger.error(`Error parsing Excel attachment ${excelAtt.filename}:`, excelError);
+      }
+    }
+
+    if (!anySucceeded) {
+      logger.warn('⏭️ Nie udało się sparsować żadnego załącznika Excel (np. Gemini API niedostępny)');
+      await this.statsService.recordEmailStat({
+        status: 'rejected',
+        reason: 'Błąd parsowania Excel (Gemini API niedostępny lub przeciążony)',
+        subject: message.subject,
+        from: message.from,
+      });
+      if (analyzedMessage.analysis) {
+        analyzedMessage.analysis = { ...analyzedMessage.analysis, isOffer: false };
       }
     }
   }

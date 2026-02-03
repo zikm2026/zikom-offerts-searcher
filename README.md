@@ -69,7 +69,17 @@ npx prisma migrate deploy
 ```
 (lub przy rozwoju: `npx prisma migrate dev`)
 
-4. Uruchom serwer w trybie deweloperskim:
+4. **Opcja: całość w Dockerze (baza + serwer)** – z katalogu projektu:
+```bash
+# Jednorazowo migracje (jeśli baza świeża)
+docker compose run --rm app npx prisma migrate deploy
+
+# Uruchom bazę i aplikację
+docker compose up -d
+```
+Serwer będzie dostępny na `http://localhost:3000`. W `.env` trzymaj m.in. `GEMINI_API_KEY`, `EMAIL_*`, `ADMIN_USERNAME`, `ADMIN_PASSWORD` – są przekazywane do kontenera przez `env_file`.
+
+5. Uruchom serwer w trybie deweloperskim (bez Dockera):
 ```bash
 npm run dev
 ```

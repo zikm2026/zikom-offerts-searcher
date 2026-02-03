@@ -67,6 +67,7 @@
     }
 
     .form-group input,
+    .form-group select,
     .form-group textarea {
       padding: 10px;
       border: 1px solid #d0d0d0;
@@ -77,6 +78,7 @@
     }
 
     .form-group input:focus,
+    .form-group select:focus,
     .form-group textarea:focus {
       outline: none;
       border-color: #000000;
@@ -85,6 +87,51 @@
     .form-group textarea {
       resize: vertical;
       min-height: 60px;
+    }
+
+    .graphics-cards-group {
+      grid-column: 1 / -1;
+    }
+    .graphics-cards-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    .graphics-cards-row input {
+      flex: 1;
+      min-width: 320px;
+    }
+    .graphics-cards-list {
+      list-style: none;
+      padding: 0;
+      margin: 0 0 8px 0;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .graphics-card-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 8px;
+      background: #f0f0f0;
+      border: 1px solid #e0e0e0;
+      border-radius: 4px;
+      font-size: 13px;
+    }
+    .graphics-card-tag button {
+      padding: 0 6px;
+      font-size: 16px;
+      line-height: 1;
+      background: transparent;
+      border: none;
+      color: #666;
+      cursor: pointer;
+      border-radius: 2px;
+    }
+    .graphics-card-tag button:hover {
+      color: #d32f2f;
+      background: #ffebee;
     }
 
     .btn {
@@ -356,8 +403,6 @@
   <div class="container">
     <h1>Panel Admina - Lista Obserwowanych Laptopów</h1>
 
-    <div id="message"></div>
-
     <div class="stats-section">
       <h2>Statystyki Emaili</h2>
       <div class="stats-periods">
@@ -380,11 +425,11 @@
             <input type="text" id="model" name="model" required placeholder="np. EliteBook 840 G3">
           </div>
           <div class="form-group">
-            <label for="maxPriceWorst">Maks. Cena (najgorsze parametry)</label>
+            <label for="maxPriceWorst">Min. Cena</label>
             <input type="text" id="maxPriceWorst" name="maxPriceWorst" placeholder="np. 300,00 €">
           </div>
           <div class="form-group">
-            <label for="maxPriceBest">Maks. Cena (najlepsze parametry)</label>
+            <label for="maxPriceBest">Maks. Cena</label>
             <input type="text" id="maxPriceBest" name="maxPriceBest" placeholder="np. 500,00 €">
           </div>
           <div class="form-group">
@@ -404,26 +449,56 @@
             <input type="text" id="storageTo" name="storageTo" placeholder="np. 1 TB">
           </div>
           <div class="form-group">
-            <label for="gradeFrom">Ocena (A/B) od</label>
-            <input type="text" id="gradeFrom" name="gradeFrom" placeholder="np. B">
+            <label for="gradeFrom">Ocena od (A–G)</label>
+            <select id="gradeFrom" name="gradeFrom">
+              <option value="">— dowolna —</option>
+              <option value="A">A</option>
+              <option value="B">B</option>
+              <option value="C">C</option>
+              <option value="D">D</option>
+              <option value="E">E</option>
+              <option value="F">F</option>
+              <option value="G">G</option>
+            </select>
           </div>
           <div class="form-group">
-            <label for="gradeTo">Ocena (A/B) do</label>
-            <input type="text" id="gradeTo" name="gradeTo" placeholder="np. A">
+            <label for="gradeTo">Ocena do (A–G)</label>
+            <select id="gradeTo" name="gradeTo">
+              <option value="">— dowolna —</option>
+              <option value="A">A</option>
+              <option value="B">B</option>
+              <option value="C">C</option>
+              <option value="D">D</option>
+              <option value="E">E</option>
+              <option value="F">F</option>
+              <option value="G">G</option>
+            </select>
           </div>
-          <div class="form-group">
-            <label for="graphicsCard">Karta graficzna (opcjonalne)</label>
-            <input type="text" id="graphicsCard" name="graphicsCard" placeholder="np. NVIDIA RTX 3060, AMD Radeon RX 6600">
-            <small style="color: #666; font-size: 12px;">Jeśli puste, każdy laptop pasuje. Jeśli wypełnione, tylko laptopy z tą kartą pasują.</small>
-          </div>
-          <div class="form-group">
-            <label for="matchThreshold">Próg dopasowania (%)</label>
-            <input type="number" id="matchThreshold" name="matchThreshold" min="0" max="100" value="90" placeholder="np. 80">
-            <small style="color: #666; font-size: 12px;">Minimalny % laptopów w ofercie które muszą pasować (0-100)</small>
+          <div class="form-group graphics-cards-group">
+            <label for="graphicsCardInput">Karta graficzna</label>
+            <div class="graphics-cards-row">
+              <input type="text" id="graphicsCardInput" placeholder="np. NVIDIA RTX 3060">
+              <button type="button" id="graphicsCardAddBtn" class="btn btn-secondary">Dodaj</button>
+            </div>
+            <ul id="addFormGraphicsCardsList" class="graphics-cards-list" aria-label="Dodane karty graficzne"></ul>
+            <input type="hidden" name="graphicsCard" id="graphicsCard" value="">
+            <small style="color: #666; font-size: 12px;">Dopasowanie: ta lub ta. Możesz pisać skrótami – np. „RTX 3060” znajdzie „NVIDIA GeForce RTX 3060”. Puste = każda karta pasuje.</small>
           </div>
         </div>
         <button type="submit" class="btn btn-primary">Dodaj Laptop</button>
       </form>
+      <div id="message"></div>
+    </div>
+
+    <div class="add-form" style="margin-bottom: 15px;">
+      <h2 style="margin-bottom: 10px;">Próg dopasowania</h2>
+      <p style="color: #666; font-size: 14px; margin-bottom: 10px;">Powiadomienie zostanie wysłane, gdy % laptopów w ofercie spełniających kryteria będzie &ge; tego progu (0–100).</p>
+      <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+        <label for="globalMatchThreshold">Dopasowanie (%)</label>
+        <input type="number" id="globalMatchThreshold" min="0" max="100" value="90" style="width: 80px; padding: 8px;">
+        <button type="button" id="saveMatchThresholdBtn" class="btn btn-primary">Zapisz</button>
+        <span id="matchThresholdStatus" style="font-size: 14px; color: #666;"></span>
+      </div>
     </div>
 
     <div id="laptopsContainer">
@@ -466,20 +541,40 @@
             <input type="text" id="editStorageTo" name="storageTo" placeholder="np. 1 TB">
           </div>
           <div class="form-group">
-            <label for="editGradeFrom">Ocena (A/B) od</label>
-            <input type="text" id="editGradeFrom" name="gradeFrom" placeholder="np. B">
+            <label for="editGradeFrom">Ocena od (A–G)</label>
+            <select id="editGradeFrom" name="gradeFrom">
+              <option value="">— dowolna —</option>
+              <option value="A">A</option>
+              <option value="B">B</option>
+              <option value="C">C</option>
+              <option value="D">D</option>
+              <option value="E">E</option>
+              <option value="F">F</option>
+              <option value="G">G</option>
+            </select>
           </div>
           <div class="form-group">
-            <label for="editGradeTo">Ocena (A/B) do</label>
-            <input type="text" id="editGradeTo" name="gradeTo" placeholder="np. A">
+            <label for="editGradeTo">Ocena do (A–G)</label>
+            <select id="editGradeTo" name="gradeTo">
+              <option value="">— dowolna —</option>
+              <option value="A">A</option>
+              <option value="B">B</option>
+              <option value="C">C</option>
+              <option value="D">D</option>
+              <option value="E">E</option>
+              <option value="F">F</option>
+              <option value="G">G</option>
+            </select>
           </div>
-          <div class="form-group">
-            <label for="editGraphicsCard">Karta graficzna (opcjonalne)</label>
-            <input type="text" id="editGraphicsCard" name="graphicsCard" placeholder="np. NVIDIA RTX 3060">
-          </div>
-          <div class="form-group">
-            <label for="editMatchThreshold">Próg dopasowania (%)</label>
-            <input type="number" id="editMatchThreshold" name="matchThreshold" min="0" max="100" value="90" placeholder="80">
+          <div class="form-group graphics-cards-group">
+            <label for="editGraphicsCardInput">Karta graficzna</label>
+            <div class="graphics-cards-row">
+              <input type="text" id="editGraphicsCardInput" placeholder="np. NVIDIA RTX 3060">
+              <button type="button" id="editGraphicsCardAddBtn" class="btn btn-secondary">Dodaj</button>
+            </div>
+            <ul id="editFormGraphicsCardsList" class="graphics-cards-list" aria-label="Dodane karty graficzne"></ul>
+            <input type="hidden" name="graphicsCard" id="editGraphicsCard" value="">
+            <small style="color: #666; font-size: 12px;">Dopasowanie: ta lub ta (OR). Skróty działają – np. „RTX 3060” znajdzie pełną nazwę w ofercie.</small>
           </div>
         </div>
         <div class="form-actions" style="margin-top: 15px;">
@@ -492,7 +587,11 @@
 
   <script>
     const API_BASE = '/api/admin/laptops';
+    const SETTINGS_API = '/api/admin/settings';
     let laptops = [];
+    let settings = { matchThreshold: 90 };
+    let addFormGraphicsCards = [];
+    let editFormGraphicsCards = [];
 
     function showMessage(message, type = 'success') {
       const messageDiv = document.getElementById('message');
@@ -520,6 +619,8 @@
 
         const data = await response.json();
         laptops = data.laptops || [];
+        if (data.settings) settings = data.settings;
+        renderMatchThreshold();
         renderLaptops();
       } catch (error) {
         document.getElementById('laptopsContainer').innerHTML = 
@@ -547,7 +648,6 @@
       html += '<th>Ocena od</th>';
       html += '<th>Ocena do</th>';
       html += '<th>Karta</th>';
-      html += '<th>Próg %</th>';
       html += '<th>Akcje</th>';
       html += '</tr></thead><tbody>';
 
@@ -563,7 +663,6 @@
         html += `<td>${escapeHtml(laptop.gradeFrom || '-')}</td>`;
         html += `<td>${escapeHtml(laptop.gradeTo || '-')}</td>`;
         html += `<td>${escapeHtml(laptop.graphicsCard || '-')}</td>`;
-        html += `<td>${escapeHtml((laptop.matchThreshold || 90) + '%')}</td>`;
         html += `<td><div class="actions">`;
         html += `<button class="btn btn-secondary btn-small" data-action="edit" data-id="${laptop.id}">Edytuj</button>`;
         html += `<button class="btn btn-danger btn-small" data-action="delete" data-id="${laptop.id}">Usuń</button>`;
@@ -599,6 +698,86 @@
       return div.innerHTML;
     }
 
+    function renderMatchThreshold() {
+      const el = document.getElementById('globalMatchThreshold');
+      if (el) el.value = settings.matchThreshold ?? 90;
+    }
+
+    function renderGraphicsCardsList(listId, hiddenId, items) {
+      const listEl = document.getElementById(listId);
+      const hiddenEl = document.getElementById(hiddenId);
+      if (!listEl || !hiddenEl) return;
+      listEl.innerHTML = '';
+      items.forEach((text, index) => {
+        const li = document.createElement('li');
+        li.className = 'graphics-card-tag';
+        li.innerHTML = `<span>${escapeHtml(text)}</span><button type="button" data-index="${index}" aria-label="Usuń">×</button>`;
+        li.querySelector('button').addEventListener('click', () => {
+          items.splice(index, 1);
+          renderGraphicsCardsList(listId, hiddenId, items);
+        });
+        listEl.appendChild(li);
+      });
+      hiddenEl.value = items.join(', ');
+    }
+
+    function addGraphicsCardAddForm() {
+      const input = document.getElementById('graphicsCardInput');
+      const value = (input.value || '').trim();
+      if (!value) return;
+      addFormGraphicsCards.push(value);
+      renderGraphicsCardsList('addFormGraphicsCardsList', 'graphicsCard', addFormGraphicsCards);
+      input.value = '';
+      input.focus();
+    }
+    document.getElementById('graphicsCardAddBtn').addEventListener('click', addGraphicsCardAddForm);
+    document.getElementById('graphicsCardInput').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); addGraphicsCardAddForm(); }
+    });
+
+    function addGraphicsCardEditForm() {
+      const input = document.getElementById('editGraphicsCardInput');
+      const value = (input.value || '').trim();
+      if (!value) return;
+      editFormGraphicsCards.push(value);
+      renderGraphicsCardsList('editFormGraphicsCardsList', 'editGraphicsCard', editFormGraphicsCards);
+      input.value = '';
+      input.focus();
+    }
+    document.getElementById('editGraphicsCardAddBtn').addEventListener('click', addGraphicsCardEditForm);
+    document.getElementById('editGraphicsCardInput').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); addGraphicsCardEditForm(); }
+    });
+
+    document.getElementById('saveMatchThresholdBtn').addEventListener('click', async () => {
+      const input = document.getElementById('globalMatchThreshold');
+      const statusEl = document.getElementById('matchThresholdStatus');
+      const val = parseInt(input.value, 10);
+      if (Number.isNaN(val) || val < 0 || val > 100) {
+        statusEl.textContent = 'Wpisz liczbę 0–100';
+        return;
+      }
+      try {
+        const response = await fetch(SETTINGS_API, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ matchThreshold: val })
+        });
+        if (!response.ok) {
+          if (response.status === 401) { window.location.reload(); return; }
+          throw new Error('Failed to save');
+        }
+        const data = await response.json();
+        if (data.settings) settings = data.settings;
+        statusEl.textContent = 'Zapisano.';
+        setTimeout(() => { statusEl.textContent = ''; }, 2000);
+      } catch (err) {
+        statusEl.textContent = 'Błąd zapisu';
+        console.error(err);
+      }
+    });
+
     document.getElementById('addLaptopForm').addEventListener('submit', async (e) => {
       e.preventDefault();
       
@@ -614,7 +793,6 @@
         gradeFrom: formData.get('gradeFrom'),
         gradeTo: formData.get('gradeTo'),
         graphicsCard: formData.get('graphicsCard'),
-        matchThreshold: formData.get('matchThreshold'),
       };
 
       try {
@@ -637,6 +815,8 @@
 
         showMessage('Laptop dodany pomyślnie!');
         e.target.reset();
+        addFormGraphicsCards = [];
+        renderGraphicsCardsList('addFormGraphicsCardsList', 'graphicsCard', addFormGraphicsCards);
         loadLaptops();
       } catch (error) {
         showMessage('Błąd podczas dodawania laptopa', 'error');
@@ -658,8 +838,9 @@
       document.getElementById('editStorageTo').value = laptop.storageTo || '';
       document.getElementById('editGradeFrom').value = laptop.gradeFrom || '';
       document.getElementById('editGradeTo').value = laptop.gradeTo || '';
-      document.getElementById('editGraphicsCard').value = laptop.graphicsCard || '';
-      document.getElementById('editMatchThreshold').value = laptop.matchThreshold ?? 90;
+      editFormGraphicsCards = (laptop.graphicsCard || '').split(/[,\n]+/).map(s => s.trim()).filter(Boolean);
+      renderGraphicsCardsList('editFormGraphicsCardsList', 'editGraphicsCard', editFormGraphicsCards);
+      document.getElementById('editGraphicsCardInput').value = '';
 
       const modal = document.getElementById('editModal');
       modal.classList.add('active');
@@ -689,7 +870,6 @@
         gradeFrom: formData.get('gradeFrom'),
         gradeTo: formData.get('gradeTo'),
         graphicsCard: formData.get('graphicsCard'),
-        matchThreshold: formData.get('matchThreshold'),
       };
 
       try {
