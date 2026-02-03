@@ -12,6 +12,8 @@ RUN npx prisma generate
 
 COPY tsconfig.json ./
 COPY src ./src/
+# Fail fast if obsolete per-laptop matchThreshold file exists (use global AppSetting instead)
+RUN test ! -f src/services/laptopMatcherService.ts || (echo "ERROR: Remove obsolete src/services/laptopMatcherService.ts (matchThreshold is now global in AppSetting)" && exit 1)
 RUN npm run build
 
 FROM node:20-slim
