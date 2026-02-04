@@ -11,7 +11,7 @@ export function isGraphicsCardMatch(
   }
 
   const options = watchedGraphicsCard
-    .split(/[,\n]+/)
+    .split(/[,\n;]+/)
     .map((s) => s.trim())
     .filter((s) => s.length > 0);
 

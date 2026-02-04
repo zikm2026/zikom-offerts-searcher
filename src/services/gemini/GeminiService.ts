@@ -15,7 +15,7 @@ import { fallbackOfferAnalysis } from './fallbacks';
 import { fillMissingFromEmailText } from './fallbacks';
 import type { GeminiConfig } from './types';
 
-const EXCEL_CHUNK_ROWS = 40;
+const EXCEL_CHUNK_ROWS = 18;
 
 export class GeminiService {
   private client: GeminiClient;

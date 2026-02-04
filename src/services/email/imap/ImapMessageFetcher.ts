@@ -20,6 +20,20 @@ export class ImapMessageFetcher {
     return this.lastCheckedUid;
   }
 
+  markAsSeen(uid: number): Promise<void> {
+    return new Promise((resolve, reject) => {
+      this.imap.addFlags(uid, ['\\Seen'], (err) => {
+        if (err) {
+          logger.warn(`Could not mark UID ${uid} as seen: ${(err as Error).message}`);
+          reject(err);
+        } else {
+          logger.debug(`Marked UID ${uid} as seen`);
+          resolve();
+        }
+      });
+    });
+  }
+
   async fetchNewMessages(): Promise<EmailMessage[]> {
     if (this.isChecking) {
       logger.debug('Email check already in progress, skipping...');
@@ -58,7 +72,7 @@ export class ImapMessageFetcher {
   }
 
   private async searchAndFetchMessages(): Promise<EmailMessage[]> {
-    const searchCriteria = [['UID', `${this.lastCheckedUid + 1}:*`]];
+    const searchCriteria = [['UNSEEN'], ['UID', `${this.lastCheckedUid + 1}:*`]];
 
     return new Promise((resolve, reject) => {
       this.imap.search(searchCriteria, (err, results) => {

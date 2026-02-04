@@ -186,6 +186,12 @@ class EmailService extends EventEmitter {
           if (analyzedMessage !== null) {
             this.emit('newMail', analyzedMessage);
           }
+
+          try {
+            await this.messageFetcher.markAsSeen(message.uid);
+          } catch {
+            logger.warn('Error marking email as seen');
+          }
         }
       } else {
         logger.debug('No new emails found');
