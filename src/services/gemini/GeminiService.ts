@@ -15,6 +15,8 @@ import { fallbackOfferAnalysis } from './fallbacks';
 import { fillMissingFromEmailText } from './fallbacks';
 import type { GeminiConfig } from './types';
 
+const EXCEL_CHUNK_ROWS = 40;
+
 export class GeminiService {
   private client: GeminiClient;
 
@@ -52,13 +54,44 @@ export class GeminiService {
 
   async parseExcelData(excelJson: unknown[][], retries: number = DEFAULT_RETRIES): Promise<ExcelData> {
     try {
-      logger.debug(`📊 Wysyłam Excel do Gemini AI (${excelJson.length} wierszy)...`);
+      const totalRows = excelJson.length;
+      logger.debug(`📊 Wysyłam Excel do Gemini AI (${totalRows} wierszy)...`);
 
-      const prompt = createExcelParsingPrompt(excelJson);
-      const text = await this.client.generateContent(prompt, retries);
+      if (totalRows <= EXCEL_CHUNK_ROWS) {
+        const prompt = createExcelParsingPrompt(excelJson);
+        const text = await this.client.generateContent(prompt, retries);
+        logger.debug(`Gemini Excel response (first 500 chars): ${text.substring(0, 500)}`);
+        return parseExcelResponse(text);
+      }
 
-      logger.debug(`Gemini Excel response (first 500 chars): ${text.substring(0, 500)}`);
-      return parseExcelResponse(text);
+      const header = excelJson[0];
+      const dataRows = excelJson.slice(1);
+      const numChunks = Math.ceil(dataRows.length / EXCEL_CHUNK_ROWS);
+      logger.info(`📊 Excel duży (${dataRows.length} wierszy) – parsowanie w ${numChunks} częściach po ${EXCEL_CHUNK_ROWS} wierszy`);
+
+      const allLaptops: ExcelData['laptops'] = [];
+      let grade: string | undefined;
+      let totalPrice: string | undefined;
+
+      for (let i = 0; i < dataRows.length; i += EXCEL_CHUNK_ROWS) {
+        const chunkIndex = Math.floor(i / EXCEL_CHUNK_ROWS) + 1;
+        logger.info(`📊 Część ${chunkIndex}/${numChunks} (wiersze ${i + 1}–${Math.min(i + EXCEL_CHUNK_ROWS, dataRows.length)})...`);
+        const chunk = [header, ...dataRows.slice(i, i + EXCEL_CHUNK_ROWS)];
+        const prompt = createExcelParsingPrompt(chunk);
+        const text = await this.client.generateContent(prompt, retries);
+        const parsed = parseExcelResponse(text);
+        allLaptops.push(...parsed.laptops);
+        if (parsed.grade && !grade) grade = parsed.grade;
+        if (parsed.totalPrice && !totalPrice) totalPrice = parsed.totalPrice;
+        if (i + EXCEL_CHUNK_ROWS < dataRows.length) await this.sleep(400);
+      }
+
+      return {
+        laptops: allLaptops,
+        totalQuantity: allLaptops.length,
+        grade: grade || undefined,
+        totalPrice: totalPrice || undefined,
+      };
     } catch (error: unknown) {
       if (isRetryableError(error) && retries > 0) {
         const delay = getRetryDelayMs(retries);
