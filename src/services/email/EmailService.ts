@@ -164,12 +164,15 @@ class EmailService extends EventEmitter {
       logger.debug('Check already in progress, skipping this cycle');
       return;
     }
+    if (!this.imapConnection.getIsConnected()) {
+      logger.debug('IMAP disconnected, skipping this check (reconnect in progress or scheduled)');
+      return;
+    }
+    if (!this.messageFetcher) {
+      logger.warn('Message fetcher not initialized');
+      return;
+    }
     try {
-      if (!this.messageFetcher) {
-        logger.warn('Message fetcher not initialized');
-        return;
-      }
-
       this.isChecking = true;
       const messages = await this.messageFetcher.fetchNewMessages();
 

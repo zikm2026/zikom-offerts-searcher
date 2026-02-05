@@ -39,7 +39,7 @@ export class ImapReconnectManager extends EventEmitter {
         logger.info('✅ Reconnected successfully!');
         this.emit('reconnected');
       } catch (error) {
-        logger.error('Failed to reconnect:', error);
+        logger.warn(`Reconnect attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts} failed:`, (error as Error)?.message ?? error);
         this.scheduleReconnect();
       }
     }, delay);
