@@ -75,6 +75,7 @@ if (config.email) {
 
 const server = app.listen(config.port, () => {
   logger.info(`Server running in ${config.env} mode on port ${config.port}`);
+  logger.info(`Log level: ${logger.level} (set LOG_LEVEL=debug for more, error/warn/info/debug)`);
   logger.info(`API version: ${config.apiVersion}`);
   
   if (config.email) {
