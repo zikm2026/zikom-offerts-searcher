@@ -34,13 +34,23 @@ export class ImapMessageFetcher {
     });
   }
 
-  async fetchNewMessages(): Promise<EmailMessage[]> {
+  async fetchNewMessages(timeoutMs: number = 60000): Promise<EmailMessage[]> {
     if (this.isChecking) {
       logger.debug('Email check already in progress, skipping...');
       return [];
     }
 
     this.isChecking = true;
+
+    const timeoutPromise = new Promise<EmailMessage[]>((resolve) => {
+      setTimeout(() => {
+        if (this.isChecking) {
+          logger.warn(`⏱️ IMAP fetch timeout (${timeoutMs / 1000}s) – resetuję flagę i zwracam pustą listę`);
+          this.isChecking = false;
+        }
+        resolve([]);
+      }, timeoutMs);
+    });
 
     try {
       const box = await this.openInbox();
@@ -52,7 +62,7 @@ export class ImapMessageFetcher {
         return [];
       }
 
-      return await this.searchAndFetchMessages();
+      return await Promise.race([this.searchAndFetchMessages(), timeoutPromise]);
     } catch (error) {
       this.isChecking = false;
       throw error;
@@ -104,18 +114,21 @@ export class ImapMessageFetcher {
     });
 
     const messages: EmailMessage[] = [];
-    let processedCount = 0;
-    const totalCount = results.length;
+    let pendingCount = 0;
+    let fetchEnded = false;
+    let resolved = false;
 
-    const handleMessageProcessed = () => {
-      processedCount++;
-      if (processedCount >= totalCount) {
+    const tryResolve = () => {
+      if (resolved) return;
+      if (fetchEnded && pendingCount === 0) {
+        resolved = true;
         this.isChecking = false;
         resolve(messages);
       }
     };
 
     fetch.on('message', (msg) => {
+      pendingCount++;
       let uid: number | null = null;
       let buffer = '';
 
@@ -130,25 +143,32 @@ export class ImapMessageFetcher {
       });
 
       msg.once('end', async () => {
-        if (uid === null) {
-          logger.warn('Received message without UID, skipping...');
-          handleMessageProcessed();
-          return;
-        }
-
         try {
+          if (uid === null) {
+            logger.warn('Received message without UID, skipping...');
+            return;
+          }
+
           const emailMessage = await this.parseMessage(buffer, uid);
           messages.push(emailMessage);
           this.lastCheckedUid = Math.max(this.lastCheckedUid, uid);
         } catch (parseErr) {
           logger.error('Error parsing email:', parseErr);
+        } finally {
+          pendingCount--;
+          tryResolve();
         }
-
-        handleMessageProcessed();
       });
     });
 
+    fetch.once('end', () => {
+      fetchEnded = true;
+      tryResolve();
+    });
+
     fetch.once('error', (fetchErr) => {
+      if (resolved) return;
+      resolved = true;
       logger.error('Error fetching messages:', fetchErr);
       this.isChecking = false;
       reject(fetchErr);
