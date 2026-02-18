@@ -223,6 +223,17 @@ export class EmailProcessor {
         subject: message.subject,
         from: message.from,
       });
+
+      if (this.notificationService && result.matchResult.matches.length > 0) {
+        try {
+          await this.notificationService.sendLaptopRejectedNotification(
+            message.subject,
+            result.matchResult
+          );
+        } catch (notificationError) {
+          logger.error('Error sending rejected-laptops notification:', notificationError);
+        }
+      }
     }
   }
 }

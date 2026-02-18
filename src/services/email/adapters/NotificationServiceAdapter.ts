@@ -11,5 +11,12 @@ export class NotificationServiceAdapter implements INotificationService {
   ): Promise<boolean> {
     return this.notificationService.sendLaptopMatchNotification(subject, matchResult);
   }
+
+  async sendLaptopRejectedNotification(
+    subject: string,
+    matchResult: EmailMatchResult
+  ): Promise<boolean> {
+    return this.notificationService.sendLaptopRejectedNotification(subject, matchResult);
+  }
 }
 

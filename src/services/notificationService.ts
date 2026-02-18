@@ -80,7 +80,8 @@ class NotificationService {
     }
 
     const matchedLaptops = matchResult.matches.filter(m => m.isMatch);
-    
+    const rejectedLaptops = matchResult.matches.filter(m => !m.isMatch);
+
     if (matchedLaptops.length === 0) {
       logger.debug('🔕 Brak laptopów spełniających kryteria - powiadomienie nie wysłane');
       return false;
@@ -105,11 +106,61 @@ class NotificationService {
 
     message += `Statystyki: ${matchResult.matchedCount}/${matchResult.totalCount} laptopow spelnia kryteria`;
 
+    if (rejectedLaptops.length > 0) {
+      message += `\n\n--- Odrzucone (${rejectedLaptops.length}) ---\n\n`;
+      rejectedLaptops.forEach((match, index) => {
+        const laptop = match.laptop;
+        message += `${index + 1}. ${laptop.model || 'Unknown'}\n`;
+        message += `   Powód: ${match.reason}\n`;
+        if (laptop.price) {
+          message += `   Cena w ofercie: ${laptop.price}\n`;
+        }
+        message += '\n';
+      });
+    }
+
     return this.sendNotificationWithRetry({
       title,
       message,
       priority: 'high',
       tags: ['laptop', 'offer', 'match'],
+    });
+  }
+
+  async sendLaptopRejectedNotification(
+    emailSubject: string,
+    matchResult: EmailMatchResult
+  ): Promise<boolean> {
+    if (!this.config.enabled) {
+      logger.debug('🔕 Powiadomienia ntfy.sh są wyłączone');
+      return false;
+    }
+
+    const rejectedLaptops = matchResult.matches.filter(m => !m.isMatch);
+    if (rejectedLaptops.length === 0) {
+      return false;
+    }
+
+    const title = `Oferta bez pasujących laptopów (${rejectedLaptops.length} odrzuconych)`;
+    let message = `Email: ${emailSubject}\n\n`;
+    message += `Żaden laptop nie spełnił kryteriów. Odrzucone:\n\n`;
+
+    rejectedLaptops.forEach((match, index) => {
+      const laptop = match.laptop;
+      message += `${index + 1}. ${laptop.model || 'Unknown'}\n`;
+      message += `   Powód: ${match.reason}\n`;
+      if (laptop.price) message += `   Cena: ${laptop.price}\n`;
+      if (laptop.ram) message += `   RAM: ${laptop.ram}\n`;
+      message += '\n';
+    });
+
+    message += `Statystyki: 0/${matchResult.totalCount} laptopów spełnia kryteria`;
+
+    return this.sendNotificationWithRetry({
+      title,
+      message,
+      priority: 'default',
+      tags: ['laptop', 'offer', 'rejected'],
     });
   }
 
