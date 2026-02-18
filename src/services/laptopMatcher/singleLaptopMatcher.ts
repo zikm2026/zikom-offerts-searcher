@@ -21,6 +21,20 @@ function toMatchResultWatched(wl: WatchedLaptop): MatchResult['watchedLaptop'] {
   };
 }
 
+const NOT_IN_DB_PLACEHOLDER: MatchResult['watchedLaptop'] = {
+  id: '',
+  model: '(nie w bazie)',
+  maxPriceWorst: null,
+  maxPriceBest: null,
+  ramFrom: null,
+  ramTo: null,
+  storageFrom: null,
+  storageTo: null,
+  gradeFrom: null,
+  gradeTo: null,
+  graphicsCard: null,
+};
+
 export async function matchLaptop(
   laptop: LaptopSpec,
   watchedLaptops: WatchedLaptop[],
@@ -32,7 +46,14 @@ export async function matchLaptop(
   );
 
   if (!watchedLaptop) {
-    return null;
+    return {
+      laptop,
+      watchedLaptop: NOT_IN_DB_PLACEHOLDER,
+      maxAllowedPrice: 0,
+      actualPrice: 0,
+      isMatch: false,
+      reason: 'Nie ma w bazie obserwowanych',
+    };
   }
 
   const { maxPrice, reason } = await calculateMaxAllowedPrice(

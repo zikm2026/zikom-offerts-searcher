@@ -57,8 +57,9 @@ export class LaptopMatcherService {
 
           if (matchResult) {
             matches.push(matchResult);
-            matchedInDatabase++;
-
+            if (matchResult.watchedLaptop.id) {
+              matchedInDatabase++;
+            }
             if (matchResult.isMatch) {
               matchedWithPrice++;
             }
