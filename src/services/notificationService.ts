@@ -9,6 +9,14 @@ interface NotificationOptions {
   tags?: string[];
 }
 
+function headerSafe(str: string): string {
+  return str
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/ł/g, 'l')
+    .replace(/Ł/g, 'L');
+}
+
 class NotificationService {
   private config: NtfyConfig;
   private maxRetries: number = 3;
@@ -24,25 +32,27 @@ class NotificationService {
   ): Promise<boolean> {
     try {
       const url = `${this.config.server}/${this.config.topic}`;
-      
+
       const headers: Record<string, string> = {
-        'Content-Type': 'text/plain',
-        'X-Title': options.title,
+        'Content-Type': 'text/plain; charset=utf-8',
+        'X-Title': headerSafe(options.title),
         'X-Priority': options.priority || 'high',
       };
 
       if (options.tags && options.tags.length > 0) {
-        headers['X-Tags'] = options.tags.join(',');
+        headers['X-Tags'] = options.tags.map(headerSafe).join(',');
       }
 
       if (this.config.token) {
         headers['Authorization'] = `Bearer ${this.config.token}`;
       }
 
+      const body = Buffer.from(options.message, 'utf-8');
+
       const response = await fetch(url, {
         method: 'POST',
         headers,
-        body: options.message,
+        body,
       });
 
       if (!response.ok) {
