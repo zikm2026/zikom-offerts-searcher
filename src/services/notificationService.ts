@@ -13,6 +13,18 @@ interface NotificationOptions {
   tags?: string[];
 }
 
+const MAX_MESSAGE_BYTES = 3500;
+const TRUNCATE_SUFFIX = '\n\n(... wiadomosc obcieta)';
+
+function truncateToMaxBytes(str: string, maxBytes: number = MAX_MESSAGE_BYTES): string {
+  const buf = Buffer.from(str, 'utf-8');
+  if (buf.length <= maxBytes) return str;
+  const suffix = Buffer.from(TRUNCATE_SUFFIX, 'utf-8');
+  let cut = maxBytes - suffix.length;
+  while (cut > 0 && (buf[cut] & 0xc0) === 0x80) cut--;
+  return Buffer.concat([buf.subarray(0, cut), suffix]).toString('utf-8');
+}
+
 function headerSafe(str: string): string {
   return str
     .normalize('NFD')
@@ -51,7 +63,8 @@ class NotificationService {
         headers['Authorization'] = `Bearer ${this.config.token}`;
       }
 
-      const body = Buffer.from(options.message, 'utf-8');
+      const messageTruncated = truncateToMaxBytes(options.message);
+      const body = Buffer.from(messageTruncated, 'utf-8');
 
       const response = await fetch(url, {
         method: 'POST',
@@ -157,9 +170,11 @@ class NotificationService {
 
     const title = `Oferta bez pasujących laptopów (${rejectedLaptops.length} odrzuconych)`;
     let message = `Email: ${emailSubject}\n\n`;
-    message += `Żaden laptop nie spełnił kryteriów. Odrzucone:\n\n`;
+    message += `Żaden laptop nie spełnił kryteriów. Odrzucone (max 25 pierwszych):\n\n`;
 
-    rejectedLaptops.forEach((match, index) => {
+    const maxList = 25;
+    const toList = rejectedLaptops.slice(0, maxList);
+    toList.forEach((match, index) => {
       const laptop = match.laptop;
       message += `${index + 1}. ${laptop.model || 'Unknown'}\n`;
       message += `   Powód: ${match.reason}\n`;
@@ -167,7 +182,9 @@ class NotificationService {
       if (laptop.ram) message += `   RAM: ${laptop.ram}\n`;
       message += '\n';
     });
-
+    if (rejectedLaptops.length > maxList) {
+      message += `... oraz ${rejectedLaptops.length - maxList} więcej.\n\n`;
+    }
     message += `Statystyki: 0/${matchResult.totalCount} laptopów spełnia kryteria`;
 
     return this.sendNotificationWithRetry({
