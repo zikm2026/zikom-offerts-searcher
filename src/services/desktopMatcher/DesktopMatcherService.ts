@@ -17,8 +17,13 @@ function normalizeCaseType(s: string | undefined): string | null {
 
 function parseRam(s: string | undefined): number | null {
   if (!s) return null;
-  const m = String(s).match(/(\d+)\s*GB/i);
-  return m ? parseInt(m[1], 10) : null;
+  const str = String(s).trim();
+  const m = str.match(/(\d+)\s*GB/i);
+  if (m) return parseInt(m[1], 10);
+  const numOnly = str.match(/^(\d+)$/);
+  if (numOnly) return parseInt(numOnly[1], 10);
+  const beforeRam = str.match(/(\d+)\s*RAM/i);
+  return beforeRam ? parseInt(beforeRam[1], 10) : null;
 }
 
 function ramInRange(offerRam: number | null, from: string | null, to: string | null): boolean {
@@ -103,7 +108,8 @@ export class DesktopMatcherService {
 
         const watched = watchedDesktops.find((w) => {
           const wCase = w.caseType.toUpperCase();
-          if (offerCaseType && wCase !== offerCaseType) return false;
+          const offerCaseUpper = offerCaseType?.toUpperCase() ?? '';
+          if (offerCaseUpper && wCase !== offerCaseUpper) return false;
           if (!ramInRange(offerRam, w.ramFrom, w.ramTo)) return false;
           if (!storageInRange(offerStorage, w.storageFrom, w.storageTo)) return false;
           return true;
