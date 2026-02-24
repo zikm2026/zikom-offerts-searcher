@@ -8,6 +8,7 @@ interface RawLaptop {
   storage?: string;
   price?: unknown;
   graphicsCard?: string;
+  amount?: number;
 }
 
 interface RawExcelResponse {
@@ -24,6 +25,7 @@ function parseLaptopsArray(parsed: RawExcelResponse): LaptopSpec[] {
     storage: laptop.storage || undefined,
     price: normalizePriceFromGemini(laptop.price),
     graphicsCard: laptop.graphicsCard || undefined,
+    amount: typeof laptop.amount === 'number' && laptop.amount > 0 ? laptop.amount : undefined,
   }));
 }
 

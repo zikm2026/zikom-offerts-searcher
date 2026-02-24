@@ -98,10 +98,14 @@ export class DesktopMatcherService {
       }
 
       const matches: DesktopMatchResult[] = [];
-      let matchedInDb = 0;
-      let matchedWithPrice = 0;
+      let matchedInDbUnits = 0;
+      let matchedWithPriceUnits = 0;
+      let totalUnits = 0;
 
       for (const desktop of desktopData.desktops) {
+        const amount = typeof desktop.amount === 'number' && desktop.amount > 0 ? desktop.amount : 1;
+        totalUnits += amount;
+
         const offerCaseType = normalizeCaseType(desktop.caseType);
         const offerRam = parseRam(desktop.ram);
         const offerStorage = parseStorage(desktop.storage);
@@ -122,24 +126,23 @@ export class DesktopMatcherService {
             maxAllowedPrice: 0,
             actualPrice: 0,
             isMatch: false,
-            reason: 'Nie ma w bazie obserwowanych (typ obudowy/RAM/dysk)',
+            reason: `Nie ma w bazie obserwowanych (typ obudowy/RAM/dysk) [${amount} szt.]`,
           });
           continue;
         }
 
-        matchedInDb++;
+        matchedInDbUnits += amount;
         const maxPriceNum = watched.maxPrice ? parseFloat(watched.maxPrice.replace(',', '.')) : 0;
         const maxAllowedPrice = Number.isNaN(maxPriceNum) ? 0 : maxPriceNum;
         const totalPrice = await normalizePrice(desktop.price, this.currencyService);
         const total = totalPrice ?? 0;
-        const amount = typeof desktop.amount === 'number' && desktop.amount > 0 ? desktop.amount : 1;
         const actualPrice = amount > 1 ? total / amount : total;
         const isMatch = maxAllowedPrice > 0 && actualPrice > 0 && actualPrice <= maxAllowedPrice;
         const reason = isMatch
           ? `✅ Dopasowano – max ${maxAllowedPrice.toFixed(2)} €, cena za szt.: ${actualPrice.toFixed(2)} €${amount > 1 ? ` (${total.toFixed(2)} € za ${amount} szt.)` : ''}`
           : actualPrice > maxAllowedPrice
             ? `❌ Za drogo – max ${maxAllowedPrice.toFixed(2)} €, cena za szt.: ${actualPrice.toFixed(2)} €${amount > 1 ? ` (${total.toFixed(2)} € za ${amount} szt.)` : ''}`
-            : 'Brak ceny w ofercie';
+            : `Brak ceny w ofercie [${amount} szt.]`;
 
         matches.push({
           desktop,
@@ -157,20 +160,19 @@ export class DesktopMatcherService {
           isMatch,
           reason,
         });
-        if (isMatch) matchedWithPrice++;
+        if (isMatch) matchedWithPriceUnits += amount;
       }
 
-      const totalCount = desktopData.desktops.length;
-      const matchPct = totalCount > 0 ? (matchedInDb / totalCount) * 100 : 0;
-      const pricePct = totalCount > 0 ? (matchedWithPrice / totalCount) * 100 : 0;
+      const matchPct = totalUnits > 0 ? (matchedInDbUnits / totalUnits) * 100 : 0;
+      const pricePct = totalUnits > 0 ? (matchedWithPriceUnits / totalUnits) * 100 : 0;
       const allMatched = matchPct >= thresholdPercent;
-      const shouldNotify = pricePct >= thresholdPercent && matchedWithPrice > 0;
+      const shouldNotify = pricePct >= thresholdPercent && matchedWithPriceUnits > 0;
 
       logger.debug(
-        `📊 Komputery stacjonarne: ${matchedInDb}/${totalCount} w bazie (${matchPct.toFixed(1)}%), ${matchedWithPrice}/${totalCount} spełnia kryteria (${pricePct.toFixed(1)}%), próg: ${thresholdPercent}%`
+        `📊 Komputery stacjonarne: ${matchedInDbUnits}/${totalUnits} szt. w bazie (${matchPct.toFixed(1)}%), ${matchedWithPriceUnits}/${totalUnits} szt. spełnia kryteria (${pricePct.toFixed(1)}%), próg: ${thresholdPercent}%`
       );
 
-      return { allMatched, matchedCount: matchedWithPrice, totalCount, matches, shouldNotify };
+      return { allMatched, matchedCount: matchedWithPriceUnits, totalCount: totalUnits, matches, shouldNotify };
     } catch (error) {
       logger.error('Error matching desktops:', error);
       throw error;

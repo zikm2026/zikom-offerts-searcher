@@ -32,21 +32,29 @@ export class LaptopMatcherService {
 
       if (watchedLaptops.length === 0) {
         logger.warn('⚠️  Baza danych laptopów jest pusta!');
+        const emptyTotalUnits = excelData.laptops.reduce(
+          (sum, l) => sum + (typeof l.amount === 'number' && l.amount > 0 ? l.amount : 1),
+          0
+        );
         return {
           allLaptopsMatched: false,
           matchedCount: 0,
-          totalCount: excelData.laptops.length,
+          totalCount: emptyTotalUnits,
           matches: [],
           shouldNotify: false,
         };
       }
 
       const matches: EmailMatchResult['matches'] = [];
-      let matchedInDatabase = 0;
-      let matchedWithPrice = 0;
+      let matchedInDbUnits = 0;
+      let matchedWithPriceUnits = 0;
+      let totalUnits = 0;
 
       const offerGrade = excelData.grade ?? null;
       for (const laptop of excelData.laptops) {
+        const amount = typeof laptop.amount === 'number' && laptop.amount > 0 ? laptop.amount : 1;
+        totalUnits += amount;
+
         try {
           const matchResult = await matchLaptop(
             laptop,
@@ -58,10 +66,10 @@ export class LaptopMatcherService {
           if (matchResult) {
             matches.push(matchResult);
             if (matchResult.watchedLaptop.id) {
-              matchedInDatabase++;
+              matchedInDbUnits += amount;
             }
             if (matchResult.isMatch) {
-              matchedWithPrice++;
+              matchedWithPriceUnits += amount;
             }
           }
         } catch (error) {
@@ -69,24 +77,21 @@ export class LaptopMatcherService {
         }
       }
 
-      const totalCount = excelData.laptops.length;
-      const matchPercentage =
-        totalCount > 0 ? (matchedInDatabase / totalCount) * 100 : 0;
-      const priceMatchPercentage =
-        totalCount > 0 ? (matchedWithPrice / totalCount) * 100 : 0;
+      const matchPercentage = totalUnits > 0 ? (matchedInDbUnits / totalUnits) * 100 : 0;
+      const priceMatchPercentage = totalUnits > 0 ? (matchedWithPriceUnits / totalUnits) * 100 : 0;
 
       const allLaptopsMatched = matchPercentage >= thresholdPercent;
       const shouldNotify =
-        priceMatchPercentage >= thresholdPercent && matchedWithPrice > 0;
+        priceMatchPercentage >= thresholdPercent && matchedWithPriceUnits > 0;
 
       logger.debug(
-        `📊 Dopasowanie: ${matchedInDatabase}/${totalCount} w bazie (${matchPercentage.toFixed(1)}%), ${matchedWithPrice}/${totalCount} spełnia kryteria (${priceMatchPercentage.toFixed(1)}%), próg: ${thresholdPercent}%`
+        `📊 Dopasowanie: ${matchedInDbUnits}/${totalUnits} szt. w bazie (${matchPercentage.toFixed(1)}%), ${matchedWithPriceUnits}/${totalUnits} szt. spełnia kryteria (${priceMatchPercentage.toFixed(1)}%), próg: ${thresholdPercent}%`
       );
 
       return {
         allLaptopsMatched,
-        matchedCount: matchedWithPrice,
-        totalCount,
+        matchedCount: matchedWithPriceUnits,
+        totalCount: totalUnits,
         matches,
         shouldNotify,
       };

@@ -74,9 +74,9 @@ export async function matchLaptop(
     };
   }
 
-  const actualPrice = await normalizePrice(laptop.price, currencyService);
+  const totalPrice = await normalizePrice(laptop.price, currencyService);
 
-  if (actualPrice === null) {
+  if (totalPrice === null) {
     return {
       laptop,
       watchedLaptop: toMatchResultWatched(watchedLaptop),
@@ -87,7 +87,10 @@ export async function matchLaptop(
     };
   }
 
+  const amount = typeof laptop.amount === 'number' && laptop.amount > 0 ? laptop.amount : 1;
+  const actualPrice = amount > 1 ? totalPrice / amount : totalPrice;
   const isMatch = actualPrice <= maxPrice;
+  const amountSuffix = amount > 1 ? ` (${totalPrice.toFixed(2).replace('.', ',')} € za ${amount} szt.)` : '';
 
   return {
     laptop,
@@ -96,7 +99,7 @@ export async function matchLaptop(
     actualPrice,
     isMatch,
     reason: isMatch
-      ? `✅ ${reason} → max ${maxPrice.toFixed(2).replace('.', ',')} €, cena: ${actualPrice.toFixed(2).replace('.', ',')} €`
-      : `❌ ${reason} → max ${maxPrice.toFixed(2).replace('.', ',')} €, cena: ${actualPrice.toFixed(2).replace('.', ',')} € (za drogo!)`,
+      ? `✅ ${reason} → max ${maxPrice.toFixed(2).replace('.', ',')} €, cena za szt.: ${actualPrice.toFixed(2).replace('.', ',')} €${amountSuffix}`
+      : `❌ ${reason} → max ${maxPrice.toFixed(2).replace('.', ',')} €, cena za szt.: ${actualPrice.toFixed(2).replace('.', ',')} €${amountSuffix} (za drogo!)`,
   };
 }

@@ -88,10 +88,14 @@ export class MonitorMatcherService {
       }
 
       const matches: MonitorMatchResult[] = [];
-      let matchedInDb = 0;
-      let matchedWithPrice = 0;
+      let matchedInDbUnits = 0;
+      let matchedWithPriceUnits = 0;
+      let totalUnits = 0;
 
       for (const monitor of monitorData.monitors) {
+        const amount = typeof monitor.amount === 'number' && monitor.amount > 0 ? monitor.amount : 1;
+        totalUnits += amount;
+
         const offerSize = parseSizeInches(monitor.sizeInches);
         const offerRes = parseResolution(monitor.resolution);
 
@@ -108,24 +112,23 @@ export class MonitorMatcherService {
             maxAllowedPrice: 0,
             actualPrice: 0,
             isMatch: false,
-            reason: 'Nie ma w bazie obserwowanych (wielkość/rozdzielczość)',
+            reason: `Nie ma w bazie obserwowanych (wielkość/rozdzielczość) [${amount} szt.]`,
           });
           continue;
         }
 
-        matchedInDb++;
+        matchedInDbUnits += amount;
         const maxPriceNum = watched.maxPrice ? parseFloat(watched.maxPrice.replace(',', '.')) : 0;
         const maxAllowedPrice = Number.isNaN(maxPriceNum) ? 0 : maxPriceNum;
         const totalPrice = await normalizePrice(monitor.price, this.currencyService);
         const total = totalPrice ?? 0;
-        const amount = typeof monitor.amount === 'number' && monitor.amount > 0 ? monitor.amount : 1;
         const actualPrice = amount > 1 ? total / amount : total;
         const isMatch = maxAllowedPrice > 0 && actualPrice > 0 && actualPrice <= maxAllowedPrice;
         const reason = isMatch
           ? `✅ Dopasowano – max ${maxAllowedPrice.toFixed(2)} €, cena za szt.: ${actualPrice.toFixed(2)} €${amount > 1 ? ` (${total.toFixed(2)} € za ${amount} szt.)` : ''}`
           : actualPrice > maxAllowedPrice
             ? `❌ Za drogo – max ${maxAllowedPrice.toFixed(2)} €, cena za szt.: ${actualPrice.toFixed(2)} €${amount > 1 ? ` (${total.toFixed(2)} € za ${amount} szt.)` : ''}`
-            : 'Brak ceny w ofercie';
+            : `Brak ceny w ofercie [${amount} szt.]`;
 
         matches.push({
           monitor,
@@ -142,20 +145,19 @@ export class MonitorMatcherService {
           isMatch,
           reason,
         });
-        if (isMatch) matchedWithPrice++;
+        if (isMatch) matchedWithPriceUnits += amount;
       }
 
-      const totalCount = monitorData.monitors.length;
-      const matchPct = totalCount > 0 ? (matchedInDb / totalCount) * 100 : 0;
-      const pricePct = totalCount > 0 ? (matchedWithPrice / totalCount) * 100 : 0;
+      const matchPct = totalUnits > 0 ? (matchedInDbUnits / totalUnits) * 100 : 0;
+      const pricePct = totalUnits > 0 ? (matchedWithPriceUnits / totalUnits) * 100 : 0;
       const allMatched = matchPct >= thresholdPercent;
-      const shouldNotify = pricePct >= thresholdPercent && matchedWithPrice > 0;
+      const shouldNotify = pricePct >= thresholdPercent && matchedWithPriceUnits > 0;
 
       logger.debug(
-        `📊 Monitory: ${matchedInDb}/${totalCount} w bazie (${matchPct.toFixed(1)}%), ${matchedWithPrice}/${totalCount} spełnia kryteria (${pricePct.toFixed(1)}%), próg: ${thresholdPercent}%`
+        `📊 Monitory: ${matchedInDbUnits}/${totalUnits} szt. w bazie (${matchPct.toFixed(1)}%), ${matchedWithPriceUnits}/${totalUnits} szt. spełnia kryteria (${pricePct.toFixed(1)}%), próg: ${thresholdPercent}%`
       );
 
-      return { allMatched, matchedCount: matchedWithPrice, totalCount, matches, shouldNotify };
+      return { allMatched, matchedCount: matchedWithPriceUnits, totalCount: totalUnits, matches, shouldNotify };
     } catch (error) {
       logger.error('Error matching monitors:', error);
       throw error;

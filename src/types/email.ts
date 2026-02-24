@@ -23,7 +23,6 @@ export interface OfferAnalysis {
   isOffer: boolean;
   confidence: number;
   category?: string;
-  /** Typ oferty: laptop, monitor, komputer stacjonarny */
   offerType?: OfferType;
   details?: {
     productType?: string;
@@ -42,6 +41,7 @@ export interface LaptopSpec {
   storage?: string;
   price?: string;
   graphicsCard?: string;
+  amount?: number;
 }
 
 export interface ExcelData {
