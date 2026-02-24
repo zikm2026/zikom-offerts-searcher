@@ -53,9 +53,10 @@ export interface ExcelData {
 
 export interface MonitorSpec {
   model?: string;
-  sizeInches?: number | string; // np. 24, "27"
-  resolution?: string;          // np. "1920x1080", "2560x1440"
+  sizeInches?: number | string;
+  resolution?: string;
   price?: string;
+  amount?: number;
 }
 
 export interface MonitorData {
@@ -72,6 +73,7 @@ export interface DesktopSpec {
   ram?: string;
   storage?: string;
   price?: string;
+  amount?: number;
 }
 
 export interface DesktopData {

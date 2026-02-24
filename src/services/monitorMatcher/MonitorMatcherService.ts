@@ -116,13 +116,15 @@ export class MonitorMatcherService {
         matchedInDb++;
         const maxPriceNum = watched.maxPrice ? parseFloat(watched.maxPrice.replace(',', '.')) : 0;
         const maxAllowedPrice = Number.isNaN(maxPriceNum) ? 0 : maxPriceNum;
-        const actualPrice = await normalizePrice(monitor.price, this.currencyService);
-        const actual = actualPrice ?? 0;
-        const isMatch = maxAllowedPrice > 0 && actual > 0 && actual <= maxAllowedPrice;
+        const totalPrice = await normalizePrice(monitor.price, this.currencyService);
+        const total = totalPrice ?? 0;
+        const amount = typeof monitor.amount === 'number' && monitor.amount > 0 ? monitor.amount : 1;
+        const actualPrice = amount > 1 ? total / amount : total;
+        const isMatch = maxAllowedPrice > 0 && actualPrice > 0 && actualPrice <= maxAllowedPrice;
         const reason = isMatch
-          ? `✅ Dopasowano – max ${maxAllowedPrice.toFixed(2)} €, cena: ${actual.toFixed(2)} €`
-          : actual > maxAllowedPrice
-            ? `❌ Za drogo – max ${maxAllowedPrice.toFixed(2)} €, cena: ${actual.toFixed(2)} €`
+          ? `✅ Dopasowano – max ${maxAllowedPrice.toFixed(2)} €, cena za szt.: ${actualPrice.toFixed(2)} €${amount > 1 ? ` (${total.toFixed(2)} € za ${amount} szt.)` : ''}`
+          : actualPrice > maxAllowedPrice
+            ? `❌ Za drogo – max ${maxAllowedPrice.toFixed(2)} €, cena za szt.: ${actualPrice.toFixed(2)} €${amount > 1 ? ` (${total.toFixed(2)} € za ${amount} szt.)` : ''}`
             : 'Brak ceny w ofercie';
 
         matches.push({
@@ -136,7 +138,7 @@ export class MonitorMatcherService {
             maxPrice: watched.maxPrice,
           },
           maxAllowedPrice,
-          actualPrice: actual,
+          actualPrice: actualPrice,
           isMatch,
           reason,
         });

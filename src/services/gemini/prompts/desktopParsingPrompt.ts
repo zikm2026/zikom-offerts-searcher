@@ -7,12 +7,15 @@ Wyciągnij WSZYSTKIE komputery stacjonarne. Dla każdego:
 - caseType: jeden z "Tower" (pełna obudowa), "SFF" (mała obudowa, Small Form Factor), "Mini" (mini PC). Na podstawie opisu w Excel ustaw odpowiedni typ.
 - ram (np. "8 GB", "16 GB")
 - storage (dysk, np. "256 GB", "1 TB")
-- price (cena w formacie "XXX,XX EUR" lub waluta z oferty)
+- price (cena TAK JAK W EXCELU – np. "5000" lub "5000 EUR" – NIE dziel przez ilość, zwróć wartość z arkusza)
+- amount (liczba sztuk w wierszu – jeśli w Excelu jest kolumna amount/quantity/ilość/szt, zwróć ją jako number; jeśli brak – 1)
+
+WAŻNE: Cena w Excelu często jest ZA CAŁĄ PARTIĘ (np. 5000 za 10 szt.). Zawsze zwróć "price" jako wartość z arkusza i "amount" jako ilość sztuk. System sam obliczy cenę za sztukę.
 
 ODPOWIEDZ TYLKO JSON:
 {
   "desktops": [
-    { "model": "string lub null", "caseType": "Tower" | "SFF" | "Mini", "ram": "string", "storage": "string", "price": "string" }
+    { "model": "string lub null", "caseType": "Tower" | "SFF" | "Mini", "ram": "string", "storage": "string", "price": "string", "amount": number }
   ],
   "totalPrice": "string lub null",
   "totalQuantity": number
