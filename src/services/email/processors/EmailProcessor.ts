@@ -203,13 +203,20 @@ export class EmailProcessor {
     }
     if (desktopData.desktops.length === 0 && this.geminiService) {
       try {
+        logger.debug('📧 Brak załącznika Excel – wyciągam dane PC z treści maila...');
         desktopData = await this.geminiService.parseEmailContentDesktops(message);
+        if (desktopData.desktops.length > 0) {
+          logger.info(`✅ Wyciągnięto ${desktopData.desktops.length} PC z treści maila`);
+        } else {
+          logger.warn('⚠️ Gemini nie zwróciło żadnego PC z treści maila (pusta tablica desktops)');
+        }
       } catch (e) {
         logger.error('Error parsing email content for desktops:', e);
       }
     }
 
     if (desktopData.desktops.length === 0) {
+      logger.debug('❌ Oferta PC odrzucona: brak danych PC w mailu (nie wyciągnięto z treści ani z Excel)');
       await this.statsService.recordEmailStat({
         status: 'rejected',
         reason: 'Brak danych PC w mailu',

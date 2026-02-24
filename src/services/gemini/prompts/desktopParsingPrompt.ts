@@ -25,10 +25,16 @@ ${jsonStr}`;
 export function createDesktopEmailContentPrompt(emailContent: string): string {
   return `Jesteś ekspertem w analizie ofert KOMPUTERÓW STACJONARNYCH w treści maila.
 
-Wyciągnij WSZYSTKIE komputery. Dla każdego:
-- model (nazwa lub null)
-- caseType: "Tower" | "SFF" | "Mini" (na podstawie opisu: pełna obudowa/tower, mała/SFF, mini PC)
-- ram, storage, price (z zachowaniem waluty)
+Wyciągnij WSZYSTKIE komputery z maila. Nawet jeśli jest tylko JEDEN komputer (np. krótki opis: "tower, 32GB RAM, 2TB, 300 Euro") – zwróć go w tablicy "desktops" z jednym elementem.
+
+Dla każdego komputera podaj:
+- model (nazwa/model lub null)
+- caseType: "Tower" (pełna obudowa, tower), "SFF" (mała obudowa), "Mini" (mini PC). Gdy w tekście jest "tower" lub "pełna" → "Tower". Gdy nie wiadomo → "Tower".
+- ram (np. "32 GB", "16 GB")
+- storage (dysk, np. "2 TB", "1 TB", "512 GB")
+- price (cena z walutą, np. "300 Euro", "300 EUR", "1200 PLN")
+
+WAŻNE: Jeśli w mailu jest choć jeden opis komputera (np. typ obudowy + RAM + dysk + cena), ZAWSZE zwróć co najmniej jeden wpis w "desktops". Nie zwracaj pustej tablicy.
 
 ODPOWIEDZ TYLKO JSON:
 {
