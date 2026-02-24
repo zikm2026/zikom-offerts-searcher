@@ -1,5 +1,14 @@
-import { OfferAnalysis } from '../../../types/email';
+import { OfferAnalysis, OfferType } from '../../../types/email';
 import logger from '../../../utils/logger';
+
+function toOfferType(v: string | null | undefined): OfferType | undefined {
+  if (!v) return undefined;
+  const t = String(v).toLowerCase();
+  if (t === 'laptop') return 'laptop';
+  if (t === 'monitor') return 'monitor';
+  if (t === 'desktop') return 'desktop';
+  return undefined;
+}
 
 export function parseOfferAnalysisResponse(response: string): OfferAnalysis {
   try {
@@ -9,11 +18,16 @@ export function parseOfferAnalysisResponse(response: string): OfferAnalysis {
     }
 
     const parsed = JSON.parse(jsonMatch[0]);
+    let offerType: OfferType | undefined = toOfferType(parsed.offerType);
+    if (!offerType && parsed.category) {
+      offerType = toOfferType(parsed.category) ?? undefined;
+    }
 
     return {
       isOffer: Boolean(parsed.isOffer),
       confidence: Math.min(Math.max(Number(parsed.confidence) || 0, 0), 100),
       category: parsed.category || undefined,
+      offerType: offerType ?? undefined,
       details: {
         productType: parsed.details?.productType || undefined,
         brand: parsed.details?.brand || undefined,
@@ -34,6 +48,7 @@ export function parseOfferAnalysisResponse(response: string): OfferAnalysis {
     return {
       isOffer: isOfferMatch,
       confidence: confidenceMatch ? parseInt(confidenceMatch[1], 10) : 50,
+      offerType: undefined,
       reasoning: 'Parsed from text response due to JSON parsing error',
     };
   }

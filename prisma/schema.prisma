@@ -21,11 +21,38 @@ model WatchedLaptop {
   storageTo      String?
   gradeFrom      String?
   gradeTo        String?
-  graphicsCard   String?  // Opcjonalna karta graficzna (np. "NVIDIA RTX 3060", "AMD Radeon RX 6600")
+  graphicsCard   String?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
   @@map("watched_laptops")
+}
+
+model WatchedMonitor {
+  id            String   @id @default(uuid())
+  sizeInchesMin Float?   // np. 24
+  sizeInchesMax Float?   // np. 27
+  resolutionMin String?  // np. "1920x1080"
+  resolutionMax String?  // np. "2560x1440"
+  maxPrice      String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("watched_monitors")
+}
+
+model WatchedDesktop {
+  id           String   @id @default(uuid())
+  caseType     String   // Tower | SFF | Mini
+  maxPrice     String?
+  ramFrom      String?
+  ramTo        String?
+  storageFrom  String?
+  storageTo    String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("watched_desktops")
 }
 
 model AppSetting {
@@ -39,11 +66,13 @@ model EmailStat {
   id          String   @id @default(uuid())
   processedAt DateTime @default(now())
   status      String   // 'processed', 'accepted', 'rejected'
-  reason      String?  // powód odrzucenia (opcjonalnie)
+  reason      String?
   subject     String?
   from        String?
+  productType String?  // 'laptop' | 'monitor' | 'desktop' – typ oferty
 
   @@map("email_stats")
   @@index([processedAt])
   @@index([status])
+  @@index([productType])
 }

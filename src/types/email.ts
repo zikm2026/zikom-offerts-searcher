@@ -17,10 +17,14 @@ export interface EmailServiceConfig {
   processTimeoutMs?: number;
 }
 
+export type OfferType = 'laptop' | 'monitor' | 'desktop';
+
 export interface OfferAnalysis {
   isOffer: boolean;
   confidence: number;
   category?: string;
+  /** Typ oferty: laptop, monitor, komputer stacjonarny */
+  offerType?: OfferType;
   details?: {
     productType?: string;
     brand?: string;
@@ -45,6 +49,69 @@ export interface ExcelData {
   totalPrice?: string;
   totalQuantity?: number;
   grade?: string;
+}
+
+export interface MonitorSpec {
+  model?: string;
+  sizeInches?: number | string; // np. 24, "27"
+  resolution?: string;          // np. "1920x1080", "2560x1440"
+  price?: string;
+}
+
+export interface MonitorData {
+  monitors: MonitorSpec[];
+  totalPrice?: string;
+  totalQuantity?: number;
+}
+
+export type DesktopCaseType = 'Tower' | 'SFF' | 'Mini';
+
+export interface DesktopSpec {
+  model?: string;
+  caseType?: DesktopCaseType | string;
+  ram?: string;
+  storage?: string;
+  price?: string;
+}
+
+export interface DesktopData {
+  desktops: DesktopSpec[];
+  totalPrice?: string;
+  totalQuantity?: number;
+}
+
+export interface MonitorMatchResult {
+  monitor: MonitorSpec;
+  watchedMonitor: { id: string; sizeInchesMin?: number | null; sizeInchesMax?: number | null; resolutionMin?: string | null; resolutionMax?: string | null; maxPrice?: string | null };
+  maxAllowedPrice: number;
+  actualPrice: number;
+  isMatch: boolean;
+  reason: string;
+}
+
+export interface MonitorEmailMatchResult {
+  allMatched: boolean;
+  matchedCount: number;
+  totalCount: number;
+  matches: MonitorMatchResult[];
+  shouldNotify: boolean;
+}
+
+export interface DesktopMatchResult {
+  desktop: DesktopSpec;
+  watchedDesktop: { id: string; caseType: string; maxPrice?: string | null; ramFrom?: string | null; ramTo?: string | null; storageFrom?: string | null; storageTo?: string | null };
+  maxAllowedPrice: number;
+  actualPrice: number;
+  isMatch: boolean;
+  reason: string;
+}
+
+export interface DesktopEmailMatchResult {
+  allMatched: boolean;
+  matchedCount: number;
+  totalCount: number;
+  matches: DesktopMatchResult[];
+  shouldNotify: boolean;
 }
 
 export interface AnalyzedEmail extends EmailMessage {

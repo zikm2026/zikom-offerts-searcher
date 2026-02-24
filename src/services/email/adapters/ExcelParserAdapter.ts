@@ -1,5 +1,5 @@
 import { IExcelParser } from '../interfaces/IExcelParser';
-import { ExcelData } from '../../../types/email';
+import { ExcelData, MonitorData, DesktopData } from '../../../types/email';
 import ExcelParserService from '../../excelParserService';
 
 export class ExcelParserAdapter implements IExcelParser {
@@ -7,6 +7,14 @@ export class ExcelParserAdapter implements IExcelParser {
 
   async parseExcel(buffer: Buffer): Promise<ExcelData> {
     return this.excelParserService.parseExcel(buffer);
+  }
+
+  async parseExcelMonitors(buffer: Buffer): Promise<MonitorData> {
+    return this.excelParserService.parseExcelMonitors(buffer);
+  }
+
+  async parseExcelDesktops(buffer: Buffer): Promise<DesktopData> {
+    return this.excelParserService.parseExcelDesktops(buffer);
   }
 }
 

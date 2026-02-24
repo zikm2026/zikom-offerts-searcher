@@ -1,4 +1,4 @@
-import { EmailMessage, OfferAnalysis, ExcelData } from '../../types/email';
+import { EmailMessage, OfferAnalysis, ExcelData, MonitorData, DesktopData } from '../../types/email';
 import logger from '../../utils/logger';
 import { GeminiClient } from './GeminiClient';
 import { DEFAULT_RETRIES } from './types';
@@ -8,9 +8,12 @@ import {
   createExcelParsingPrompt,
   createEmailContentParsingPrompt,
 } from './prompts';
+import { createMonitorExcelPrompt, createMonitorEmailContentPrompt } from './prompts/monitorParsingPrompt';
+import { createDesktopExcelPrompt, createDesktopEmailContentPrompt } from './prompts/desktopParsingPrompt';
 import { prepareEmailContent } from './content';
 import { parseOfferAnalysisResponse } from './parsers';
 import { parseExcelResponse, parseEmailContentResponse } from './parsers';
+import { parseMonitorResponse, parseDesktopResponse } from './parsers/monitorDesktopParser';
 import { fallbackOfferAnalysis } from './fallbacks';
 import { fillMissingFromEmailText } from './fallbacks';
 import type { GeminiConfig } from './types';
@@ -135,6 +138,66 @@ export class GeminiService {
         `Gemini API limit/error (429 lub niedostępność) – nie wyciągnięto laptopów z treści maila. Zwracam pustą listę.`
       );
       return { laptops: [], totalQuantity: 0 };
+    }
+  }
+
+  async parseExcelMonitors(excelJson: unknown[][], retries: number = DEFAULT_RETRIES): Promise<MonitorData> {
+    try {
+      const prompt = createMonitorExcelPrompt(excelJson);
+      const text = await this.client.generateContent(prompt, retries);
+      return parseMonitorResponse(text);
+    } catch (error: unknown) {
+      if (isRetryableError(error) && retries > 0) {
+        await this.sleep(getRetryDelayMs(retries));
+        return this.parseExcelMonitors(excelJson, retries - 1);
+      }
+      logger.error('Failed to parse Excel as monitors:', error);
+      return { monitors: [], totalQuantity: 0 };
+    }
+  }
+
+  async parseEmailContentMonitors(email: EmailMessage, retries: number = DEFAULT_RETRIES): Promise<MonitorData> {
+    try {
+      const emailContent = prepareEmailContent(email, 16000, true);
+      const prompt = createMonitorEmailContentPrompt(emailContent);
+      const text = await this.client.generateContent(prompt, retries);
+      return parseMonitorResponse(text);
+    } catch (error: unknown) {
+      if (isRetryableError(error) && retries > 0) {
+        await this.sleep(getRetryDelayMs(retries));
+        return this.parseEmailContentMonitors(email, retries - 1);
+      }
+      return { monitors: [], totalQuantity: 0 };
+    }
+  }
+
+  async parseExcelDesktops(excelJson: unknown[][], retries: number = DEFAULT_RETRIES): Promise<DesktopData> {
+    try {
+      const prompt = createDesktopExcelPrompt(excelJson);
+      const text = await this.client.generateContent(prompt, retries);
+      return parseDesktopResponse(text);
+    } catch (error: unknown) {
+      if (isRetryableError(error) && retries > 0) {
+        await this.sleep(getRetryDelayMs(retries));
+        return this.parseExcelDesktops(excelJson, retries - 1);
+      }
+      logger.error('Failed to parse Excel as desktops:', error);
+      return { desktops: [], totalQuantity: 0 };
+    }
+  }
+
+  async parseEmailContentDesktops(email: EmailMessage, retries: number = DEFAULT_RETRIES): Promise<DesktopData> {
+    try {
+      const emailContent = prepareEmailContent(email, 16000, true);
+      const prompt = createDesktopEmailContentPrompt(emailContent);
+      const text = await this.client.generateContent(prompt, retries);
+      return parseDesktopResponse(text);
+    } catch (error: unknown) {
+      if (isRetryableError(error) && retries > 0) {
+        await this.sleep(getRetryDelayMs(retries));
+        return this.parseEmailContentDesktops(email, retries - 1);
+      }
+      return { desktops: [], totalQuantity: 0 };
     }
   }
 

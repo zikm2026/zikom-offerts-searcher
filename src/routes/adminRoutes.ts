@@ -199,6 +199,132 @@ router.delete('/api/admin/laptops/:id', basicAuth, async (req: Request, res: Res
   }
 });
 
+router.get('/api/admin/monitors', basicAuth, async (_req: Request, res: Response) => {
+  try {
+    const monitors = await prisma.watchedMonitor.findMany({ orderBy: { createdAt: 'desc' } });
+    return res.json({ success: true, monitors });
+  } catch (error) {
+    logger.error('Error reading monitors:', error);
+    return res.status(500).json({ success: false, error: 'Failed to read monitors' });
+  }
+});
+
+router.post('/api/admin/monitors', basicAuth, async (req: Request, res: Response) => {
+  try {
+    const sizeInchesMin = req.body.sizeInchesMin != null ? parseFloat(String(req.body.sizeInchesMin)) : null;
+    const sizeInchesMax = req.body.sizeInchesMax != null ? parseFloat(String(req.body.sizeInchesMax)) : null;
+    const monitor = await prisma.watchedMonitor.create({
+      data: {
+        sizeInchesMin: Number.isNaN(sizeInchesMin) ? null : sizeInchesMin,
+        sizeInchesMax: Number.isNaN(sizeInchesMax) ? null : sizeInchesMax,
+        resolutionMin: sanitizeString(req.body.resolutionMin),
+        resolutionMax: sanitizeString(req.body.resolutionMax),
+        maxPrice: sanitizeString(req.body.maxPrice),
+      },
+    });
+    return res.json({ success: true, monitor });
+  } catch (error) {
+    logger.error('Error adding monitor:', error);
+    return res.status(500).json({ success: false, error: 'Failed to add monitor' });
+  }
+});
+
+router.put('/api/admin/monitors/:id', basicAuth, async (req: Request, res: Response) => {
+  if (!isValidUUID(req.params.id)) return res.status(400).json({ success: false, error: 'Invalid id' });
+  try {
+    const data: any = {};
+    if (req.body.sizeInchesMin !== undefined) data.sizeInchesMin = req.body.sizeInchesMin == null ? null : parseFloat(String(req.body.sizeInchesMin));
+    if (req.body.sizeInchesMax !== undefined) data.sizeInchesMax = req.body.sizeInchesMax == null ? null : parseFloat(String(req.body.sizeInchesMax));
+    if (req.body.resolutionMin !== undefined) data.resolutionMin = sanitizeString(req.body.resolutionMin);
+    if (req.body.resolutionMax !== undefined) data.resolutionMax = sanitizeString(req.body.resolutionMax);
+    if (req.body.maxPrice !== undefined) data.maxPrice = sanitizeString(req.body.maxPrice);
+    const monitor = await prisma.watchedMonitor.update({ where: { id: req.params.id }, data });
+    return res.json({ success: true, monitor });
+  } catch (e: any) {
+    if (e.code === 'P2025') return res.status(404).json({ success: false, error: 'Monitor not found' });
+    logger.error('Error updating monitor:', e);
+    return res.status(500).json({ success: false, error: 'Failed to update monitor' });
+  }
+});
+
+router.delete('/api/admin/monitors/:id', basicAuth, async (req: Request, res: Response) => {
+  if (!isValidUUID(req.params.id)) return res.status(400).json({ success: false, error: 'Invalid id' });
+  try {
+    await prisma.watchedMonitor.delete({ where: { id: req.params.id } });
+    return res.json({ success: true });
+  } catch (e: any) {
+    if (e.code === 'P2025') return res.status(404).json({ success: false, error: 'Monitor not found' });
+    logger.error('Error deleting monitor:', e);
+    return res.status(500).json({ success: false, error: 'Failed to delete monitor' });
+  }
+});
+
+const DESKTOP_CASE_TYPES = ['Tower', 'SFF', 'Mini'];
+function sanitizeCaseType(v: unknown): string {
+  const s = String(v ?? '').trim();
+  return DESKTOP_CASE_TYPES.includes(s) ? s : 'Tower';
+}
+
+router.get('/api/admin/desktops', basicAuth, async (_req: Request, res: Response) => {
+  try {
+    const desktops = await prisma.watchedDesktop.findMany({ orderBy: { createdAt: 'desc' } });
+    return res.json({ success: true, desktops });
+  } catch (error) {
+    logger.error('Error reading desktops:', error);
+    return res.status(500).json({ success: false, error: 'Failed to read desktops' });
+  }
+});
+
+router.post('/api/admin/desktops', basicAuth, async (req: Request, res: Response) => {
+  try {
+    const desktop = await prisma.watchedDesktop.create({
+      data: {
+        caseType: sanitizeCaseType(req.body.caseType),
+        maxPrice: sanitizeString(req.body.maxPrice),
+        ramFrom: sanitizeString(req.body.ramFrom),
+        ramTo: sanitizeString(req.body.ramTo),
+        storageFrom: sanitizeString(req.body.storageFrom),
+        storageTo: sanitizeString(req.body.storageTo),
+      },
+    });
+    return res.json({ success: true, desktop });
+  } catch (error) {
+    logger.error('Error adding desktop:', error);
+    return res.status(500).json({ success: false, error: 'Failed to add desktop' });
+  }
+});
+
+router.put('/api/admin/desktops/:id', basicAuth, async (req: Request, res: Response) => {
+  if (!isValidUUID(req.params.id)) return res.status(400).json({ success: false, error: 'Invalid id' });
+  try {
+    const data: any = {};
+    if (req.body.caseType !== undefined) data.caseType = sanitizeCaseType(req.body.caseType);
+    if (req.body.maxPrice !== undefined) data.maxPrice = sanitizeString(req.body.maxPrice);
+    if (req.body.ramFrom !== undefined) data.ramFrom = sanitizeString(req.body.ramFrom);
+    if (req.body.ramTo !== undefined) data.ramTo = sanitizeString(req.body.ramTo);
+    if (req.body.storageFrom !== undefined) data.storageFrom = sanitizeString(req.body.storageFrom);
+    if (req.body.storageTo !== undefined) data.storageTo = sanitizeString(req.body.storageTo);
+    const desktop = await prisma.watchedDesktop.update({ where: { id: req.params.id }, data });
+    return res.json({ success: true, desktop });
+  } catch (e: any) {
+    if (e.code === 'P2025') return res.status(404).json({ success: false, error: 'Desktop not found' });
+    logger.error('Error updating desktop:', e);
+    return res.status(500).json({ success: false, error: 'Failed to update desktop' });
+  }
+});
+
+router.delete('/api/admin/desktops/:id', basicAuth, async (req: Request, res: Response) => {
+  if (!isValidUUID(req.params.id)) return res.status(400).json({ success: false, error: 'Invalid id' });
+  try {
+    await prisma.watchedDesktop.delete({ where: { id: req.params.id } });
+    return res.json({ success: true });
+  } catch (e: any) {
+    if (e.code === 'P2025') return res.status(404).json({ success: false, error: 'Desktop not found' });
+    logger.error('Error deleting desktop:', e);
+    return res.status(500).json({ success: false, error: 'Failed to delete desktop' });
+  }
+});
+
 router.get('/api/admin/stats', basicAuth, async (_req: Request, res: Response) => {
   try {
     const statsService = new EmailStatsService();

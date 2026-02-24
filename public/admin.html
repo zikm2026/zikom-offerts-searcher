@@ -401,7 +401,12 @@
 </head>
 <body>
   <div class="container">
-    <h1>Panel Admina - Lista Obserwowanych Laptopów</h1>
+    <h1>Panel Admina - Zikom Offers Searcher</h1>
+    <div class="stats-periods" style="margin-bottom: 20px;">
+      <button class="period-btn active" data-tab="laptops">Laptopy</button>
+      <button class="period-btn" data-tab="monitors">Monitory</button>
+      <button class="period-btn" data-tab="desktops">Komputery stacjonarne</button>
+    </div>
 
     <div class="stats-section">
       <h2>Statystyki Emaili</h2>
@@ -416,6 +421,7 @@
       </div>
     </div>
 
+    <div id="laptopsSection">
     <div class="add-form">
       <h2>Dodaj Nowy Laptop</h2>
       <form id="addLaptopForm">
@@ -503,6 +509,79 @@
 
     <div id="laptopsContainer">
       <div class="loading">Ładowanie...</div>
+    </div>
+    </div>
+
+    <div id="monitorsSection" style="display: none;">
+      <div class="add-form">
+        <h2>Dodaj obserwowany monitor</h2>
+        <form id="addMonitorForm">
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Wielkość od (cale)</label>
+              <input type="number" name="sizeInchesMin" placeholder="np. 24" step="0.1" min="15" max="40">
+            </div>
+            <div class="form-group">
+              <label>Wielkość do (cale)</label>
+              <input type="number" name="sizeInchesMax" placeholder="np. 27" step="0.1" min="15" max="40">
+            </div>
+            <div class="form-group">
+              <label>Rozdzielczość min</label>
+              <input type="text" name="resolutionMin" placeholder="np. 1920x1080">
+            </div>
+            <div class="form-group">
+              <label>Rozdzielczość max</label>
+              <input type="text" name="resolutionMax" placeholder="np. 2560x1440">
+            </div>
+            <div class="form-group">
+              <label>Maks. cena (EUR)</label>
+              <input type="text" name="maxPrice" placeholder="np. 500">
+            </div>
+          </div>
+          <button type="submit" class="btn btn-primary">Dodaj monitor</button>
+        </form>
+      </div>
+      <div id="monitorsContainer"><div class="loading">Ładowanie...</div></div>
+    </div>
+
+    <div id="desktopsSection" style="display: none;">
+      <div class="add-form">
+        <h2>Dodaj obserwowany komputer stacjonarny</h2>
+        <form id="addDesktopForm">
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Typ obudowy *</label>
+              <select name="caseType" required>
+                <option value="Tower">Tower</option>
+                <option value="SFF">SFF (mała)</option>
+                <option value="Mini">Mini</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Maks. cena</label>
+              <input type="text" name="maxPrice" placeholder="np. 800 EUR">
+            </div>
+            <div class="form-group">
+              <label>RAM od</label>
+              <input type="text" name="ramFrom" placeholder="np. 8 GB">
+            </div>
+            <div class="form-group">
+              <label>RAM do</label>
+              <input type="text" name="ramTo" placeholder="np. 32 GB">
+            </div>
+            <div class="form-group">
+              <label>Dysk od</label>
+              <input type="text" name="storageFrom" placeholder="np. 256 GB">
+            </div>
+            <div class="form-group">
+              <label>Dysk do</label>
+              <input type="text" name="storageTo" placeholder="np. 1 TB">
+            </div>
+          </div>
+          <button type="submit" class="btn btn-primary">Dodaj PC</button>
+        </form>
+      </div>
+      <div id="desktopsContainer"><div class="loading">Ładowanie...</div></div>
     </div>
   </div>
 
@@ -944,11 +1023,8 @@
     async function loadStats(period) {
       currentPeriod = period;
       
-      document.querySelectorAll('.period-btn').forEach(btn => {
-        btn.classList.remove('active');
-        if (btn.textContent.trim() === (period === '1d' ? '1 dzień' : period === '5d' ? '5 dni' : period === '30d' ? '30 dni' : 'Wszystkie')) {
-          btn.classList.add('active');
-        }
+      document.querySelectorAll('.period-btn[data-period]').forEach(btn => {
+        btn.classList.toggle('active', btn.getAttribute('data-period') === period);
       });
 
       try {
@@ -977,7 +1053,23 @@
 
     function renderStats(stats) {
       const container = document.getElementById('statsContainer');
-      
+      const byProduct = stats.byProduct || {};
+      const byProductHtml = (byProduct.laptop || byProduct.monitor || byProduct.desktop) ? `
+        <div class="stats-numbers" style="margin-top: 15px;">
+          <div class="stat-card">
+            <div class="label">Laptopy zaakceptowane</div>
+            <div class="value">${(byProduct.laptop && byProduct.laptop.accepted) || 0}</div>
+          </div>
+          <div class="stat-card">
+            <div class="label">Monitory zaakceptowane</div>
+            <div class="value">${(byProduct.monitor && byProduct.monitor.accepted) || 0}</div>
+          </div>
+          <div class="stat-card">
+            <div class="label">PC zaakceptowane</div>
+            <div class="value">${(byProduct.desktop && byProduct.desktop.accepted) || 0}</div>
+          </div>
+        </div>
+      ` : '';
       const html = `
         <div class="stats-numbers">
           <div class="stat-card">
@@ -993,6 +1085,7 @@
             <div class="value">${stats.rejected || 0}</div>
           </div>
         </div>
+        ${byProductHtml}
         <div class="stats-charts">
           <div class="chart-container">
             <h3>Wykres kołowy</h3>
@@ -1108,16 +1201,165 @@
       });
     }
 
+    function switchTab(tab) {
+      document.querySelectorAll('[data-tab]').forEach(b => {
+        b.classList.toggle('active', b.getAttribute('data-tab') === tab);
+      });
+      document.getElementById('laptopsSection').style.display = tab === 'laptops' ? 'block' : 'none';
+      document.getElementById('monitorsSection').style.display = tab === 'monitors' ? 'block' : 'none';
+      document.getElementById('desktopsSection').style.display = tab === 'desktops' ? 'block' : 'none';
+      if (tab === 'monitors') loadMonitors();
+      if (tab === 'desktops') loadDesktops();
+    }
+
+    let monitors = [], desktops = [];
+
+    async function loadMonitors() {
+      const container = document.getElementById('monitorsContainer');
+      try {
+        const result = await fetch('/api/admin/monitors', { credentials: 'include' });
+        if (!result.ok) { if (result.status === 401) window.location.reload(); return; }
+        const data = await result.json();
+        monitors = data.monitors || [];
+        if (monitors.length === 0) {
+          container.innerHTML = '<div class="empty-state"><p>Brak monitorów. Dodaj pierwszy uzywajac formularza powyzej.</p></div>';
+          return;
+        }
+        let html = '<div class="table-wrapper"><table class="laptops-table"><thead><tr><th>Wielkosc (cale)</th><th>Rozdzielczosc</th><th>Maks. cena</th><th>Akcje</th></tr></thead><tbody>';
+        monitors.forEach(m => {
+          const size = (m.sizeInchesMin != null || m.sizeInchesMax != null) ? (m.sizeInchesMin || '?') + ' - ' + (m.sizeInchesMax || '?') : '-';
+          const res = [m.resolutionMin, m.resolutionMax].filter(Boolean).join(' - ') || '-';
+          html += `<tr><td>${escapeHtml(size)}</td><td>${escapeHtml(res)}</td><td>${escapeHtml(m.maxPrice || '-')}</td><td><button class="btn btn-danger btn-small" data-delete-monitor="${m.id}">Usun</button></td></tr>`;
+        });
+        html += '</tbody></table></div>';
+        container.innerHTML = html;
+        container.querySelectorAll('[data-delete-monitor]').forEach(btn => {
+          btn.addEventListener('click', () => deleteMonitor(btn.getAttribute('data-delete-monitor')));
+        });
+      } catch (e) {
+        container.innerHTML = '<div class="error">Blad ladowania monitorow</div>';
+      }
+    }
+
+    async function deleteMonitor(id) {
+      if (!confirm('Usunac ten monitor?')) return;
+      try {
+        const r = await fetch('/api/admin/monitors/' + id, { method: 'DELETE', credentials: 'include' });
+        if (!r.ok) throw new Error();
+        showMessage('Monitor usuniety');
+        loadMonitors();
+      } catch (e) {
+        showMessage('Blad usuwania', 'error');
+      }
+    }
+
+    async function loadDesktops() {
+      const container = document.getElementById('desktopsContainer');
+      try {
+        const result = await fetch('/api/admin/desktops', { credentials: 'include' });
+        if (!result.ok) { if (result.status === 401) window.location.reload(); return; }
+        const data = await result.json();
+        desktops = data.desktops || [];
+        if (desktops.length === 0) {
+          container.innerHTML = '<div class="empty-state"><p>Brak komputerow stacjonarnych. Dodaj pierwszy.</p></div>';
+          return;
+        }
+        let html = '<div class="table-wrapper"><table class="laptops-table"><thead><tr><th>Typ obudowy</th><th>Maks. cena</th><th>RAM</th><th>Dysk</th><th>Akcje</th></tr></thead><tbody>';
+        desktops.forEach(d => {
+          const ram = [d.ramFrom, d.ramTo].filter(Boolean).join(' - ') || '-';
+          const storage = [d.storageFrom, d.storageTo].filter(Boolean).join(' - ') || '-';
+          html += `<tr><td>${escapeHtml(d.caseType || '-')}</td><td>${escapeHtml(d.maxPrice || '-')}</td><td>${escapeHtml(ram)}</td><td>${escapeHtml(storage)}</td><td><button class="btn btn-danger btn-small" data-delete-desktop="${d.id}">Usun</button></td></tr>`;
+        });
+        html += '</tbody></table></div>';
+        container.innerHTML = html;
+        container.querySelectorAll('[data-delete-desktop]').forEach(btn => {
+          btn.addEventListener('click', () => deleteDesktop(btn.getAttribute('data-delete-desktop')));
+        });
+      } catch (e) {
+        container.innerHTML = '<div class="error">Blad ladowania PC</div>';
+      }
+    }
+
+    async function deleteDesktop(id) {
+      if (!confirm('Usunac ten komputer?')) return;
+      try {
+        const r = await fetch('/api/admin/desktops/' + id, { method: 'DELETE', credentials: 'include' });
+        if (!r.ok) throw new Error();
+        showMessage('PC usuniety');
+        loadDesktops();
+      } catch (e) {
+        showMessage('Blad usuwania', 'error');
+      }
+    }
+
+    document.getElementById('addMonitorForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      try {
+        const r = await fetch('/api/admin/monitors', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            sizeInchesMin: fd.get('sizeInchesMin') ? parseFloat(fd.get('sizeInchesMin')) : null,
+            sizeInchesMax: fd.get('sizeInchesMax') ? parseFloat(fd.get('sizeInchesMax')) : null,
+            resolutionMin: fd.get('resolutionMin') || null,
+            resolutionMax: fd.get('resolutionMax') || null,
+            maxPrice: fd.get('maxPrice') || null,
+          })
+        });
+        if (!r.ok) throw new Error();
+        showMessage('Monitor dodany');
+        e.target.reset();
+        loadMonitors();
+      } catch (err) {
+        showMessage('Blad dodawania monitora', 'error');
+      }
+    });
+
+    document.getElementById('addDesktopForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      try {
+        const r = await fetch('/api/admin/desktops', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            caseType: fd.get('caseType'),
+            maxPrice: fd.get('maxPrice') || null,
+            ramFrom: fd.get('ramFrom') || null,
+            ramTo: fd.get('ramTo') || null,
+            storageFrom: fd.get('storageFrom') || null,
+            storageTo: fd.get('storageTo') || null,
+          })
+        });
+        if (!r.ok) throw new Error();
+        showMessage('PC dodany');
+        e.target.reset();
+        loadDesktops();
+      } catch (err) {
+        showMessage('Blad dodawania PC', 'error');
+      }
+    });
+
     document.addEventListener('DOMContentLoaded', () => {
       loadStats('1d');
       
-      document.querySelectorAll('.period-btn').forEach(btn => {
+      document.querySelectorAll('[data-tab]').forEach(btn => {
         btn.addEventListener('click', () => {
-          const period = btn.getAttribute('data-period');
-          if (period) {
-            loadStats(period);
-          }
+          const tab = btn.getAttribute('data-tab');
+          if (tab) switchTab(tab);
         });
+      });
+
+      document.querySelectorAll('.period-btn').forEach(btn => {
+        if (btn.getAttribute('data-period')) {
+          btn.addEventListener('click', () => {
+            const period = btn.getAttribute('data-period');
+            if (period) loadStats(period);
+          });
+        }
       });
     });
   </script>

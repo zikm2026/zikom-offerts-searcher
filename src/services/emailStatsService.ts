@@ -2,12 +2,14 @@ import prisma from '../lib/prisma';
 import logger from '../utils/logger';
 
 export type EmailStatus = 'processed' | 'accepted' | 'rejected';
+export type ProductType = 'laptop' | 'monitor' | 'desktop';
 
 interface EmailStatData {
   status: EmailStatus;
   reason?: string;
   subject?: string;
   from?: string;
+  productType?: ProductType;
 }
 
 class EmailStatsService {
@@ -19,6 +21,7 @@ class EmailStatsService {
           reason: data.reason || null,
           subject: data.subject || null,
           from: data.from || null,
+          productType: data.productType || null,
         },
       });
     } catch (error) {
@@ -26,35 +29,46 @@ class EmailStatsService {
     }
   }
 
-  async getStats(days: number | null): Promise<{
+  async getStats(days: number | null, productType?: ProductType | null): Promise<{
     processed: number;
     accepted: number;
     rejected: number;
+    byProduct?: { laptop: { accepted: number }; monitor: { accepted: number }; desktop: { accepted: number } };
   }> {
     try {
       const where: any = {};
-      
       if (days !== null) {
         const dateFrom = new Date();
         dateFrom.setDate(dateFrom.getDate() - days);
-        where.processedAt = {
-          gte: dateFrom,
-        };
+        where.processedAt = { gte: dateFrom };
+      }
+      if (productType) {
+        where.productType = productType;
       }
 
       const [processed, accepted, rejected] = await Promise.all([
-        prisma.emailStat.count({
-          where: { ...where, status: 'processed' },
-        }),
-        prisma.emailStat.count({
-          where: { ...where, status: 'accepted' },
-        }),
-        prisma.emailStat.count({
-          where: { ...where, status: 'rejected' },
-        }),
+        prisma.emailStat.count({ where: { ...where, status: 'processed' } }),
+        prisma.emailStat.count({ where: { ...where, status: 'accepted' } }),
+        prisma.emailStat.count({ where: { ...where, status: 'rejected' } }),
       ]);
 
-      return { processed, accepted, rejected };
+      const result: { processed: number; accepted: number; rejected: number; byProduct?: { laptop: { accepted: number }; monitor: { accepted: number }; desktop: { accepted: number } } } = { processed, accepted, rejected };
+
+      if (days !== null && !productType) {
+        const baseWhere = { ...where, status: 'accepted' as const };
+        const [laptopAccepted, monitorAccepted, desktopAccepted] = await Promise.all([
+          prisma.emailStat.count({ where: { ...baseWhere, productType: 'laptop' } }),
+          prisma.emailStat.count({ where: { ...baseWhere, productType: 'monitor' } }),
+          prisma.emailStat.count({ where: { ...baseWhere, productType: 'desktop' } }),
+        ]);
+        result.byProduct = {
+          laptop: { accepted: laptopAccepted },
+          monitor: { accepted: monitorAccepted },
+          desktop: { accepted: desktopAccepted },
+        };
+      }
+
+      return result;
     } catch (error) {
       logger.error('Error getting email stats:', error);
       return { processed: 0, accepted: 0, rejected: 0 };
@@ -62,9 +76,9 @@ class EmailStatsService {
   }
 
   async getAllStats(): Promise<{
-    '1d': { processed: number; accepted: number; rejected: number };
-    '5d': { processed: number; accepted: number; rejected: number };
-    '30d': { processed: number; accepted: number; rejected: number };
+    '1d': { processed: number; accepted: number; rejected: number; byProduct?: { laptop: { accepted: number }; monitor: { accepted: number }; desktop: { accepted: number } } };
+    '5d': { processed: number; accepted: number; rejected: number; byProduct?: { laptop: { accepted: number }; monitor: { accepted: number }; desktop: { accepted: number } } };
+    '30d': { processed: number; accepted: number; rejected: number; byProduct?: { laptop: { accepted: number }; monitor: { accepted: number }; desktop: { accepted: number } } };
     max: { processed: number; accepted: number; rejected: number };
   }> {
     const [stats1d, stats5d, stats30d, statsMax] = await Promise.all([

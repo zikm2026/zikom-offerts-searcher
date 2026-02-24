@@ -1,6 +1,10 @@
 import { NtfyConfig } from '../config/index';
 import logger from '../utils/logger';
-import { EmailMatchResult } from '../types/email';
+import {
+  EmailMatchResult,
+  MonitorEmailMatchResult,
+  DesktopEmailMatchResult,
+} from '../types/email';
 
 interface NotificationOptions {
   title: string;
@@ -171,6 +175,117 @@ class NotificationService {
       message,
       priority: 'default',
       tags: ['laptop', 'offer', 'rejected'],
+    });
+  }
+
+  async sendMonitorMatchNotification(
+    emailSubject: string,
+    matchResult: MonitorEmailMatchResult
+  ): Promise<boolean> {
+    if (!this.config.enabled) return false;
+    const matched = matchResult.matches.filter(m => m.isMatch);
+    const rejected = matchResult.matches.filter(m => !m.isMatch);
+    if (matched.length === 0) return false;
+
+    const title = `Znaleziono ${matched.length} monitor(ow) w ofercie!`;
+    let message = `Email: ${emailSubject}\n\n`;
+    matched.forEach((m, i) => {
+      message += `${i + 1}. ${m.monitor.model || 'Monitor'}\n`;
+      if (m.monitor.sizeInches) message += `   Wielkosc: ${m.monitor.sizeInches}"\n`;
+      if (m.monitor.resolution) message += `   Rozdzielczosc: ${m.monitor.resolution}\n`;
+      if (m.monitor.price) message += `   Cena: ${m.monitor.price}\n`;
+      message += '\n';
+    });
+    message += `Statystyki: ${matchResult.matchedCount}/${matchResult.totalCount} monitorow spelnia kryteria`;
+    if (rejected.length > 0) {
+      message += `\n\n--- Odrzucone (${rejected.length}) ---\n\n`;
+      rejected.forEach((m, i) => {
+        message += `${i + 1}. ${m.monitor.model || 'Monitor'}\n   Powod: ${m.reason}\n\n`;
+      });
+    }
+    return this.sendNotificationWithRetry({
+      title,
+      message,
+      priority: 'high',
+      tags: ['monitor', 'offer', 'match'],
+    });
+  }
+
+  async sendMonitorRejectedNotification(
+    emailSubject: string,
+    matchResult: MonitorEmailMatchResult
+  ): Promise<boolean> {
+    if (!this.config.enabled) return false;
+    const rejected = matchResult.matches.filter(m => !m.isMatch);
+    if (rejected.length === 0) return false;
+    const title = `Oferta monitorow bez pasujacych (${rejected.length} odrzuconych)`;
+    let message = `Email: ${emailSubject}\n\n`;
+    rejected.forEach((m, i) => {
+      message += `${i + 1}. ${m.monitor.model || 'Monitor'}\n   Powod: ${m.reason}\n`;
+      if (m.monitor.price) message += `   Cena: ${m.monitor.price}\n`;
+      message += '\n';
+    });
+    return this.sendNotificationWithRetry({
+      title,
+      message,
+      priority: 'default',
+      tags: ['monitor', 'offer', 'rejected'],
+    });
+  }
+
+  async sendDesktopMatchNotification(
+    emailSubject: string,
+    matchResult: DesktopEmailMatchResult
+  ): Promise<boolean> {
+    if (!this.config.enabled) return false;
+    const matched = matchResult.matches.filter(m => m.isMatch);
+    const rejected = matchResult.matches.filter(m => !m.isMatch);
+    if (matched.length === 0) return false;
+
+    const title = `Znaleziono ${matched.length} PC w ofercie!`;
+    let message = `Email: ${emailSubject}\n\n`;
+    matched.forEach((m, i) => {
+      message += `${i + 1}. ${m.desktop.model || 'PC'}\n`;
+      if (m.desktop.caseType) message += `   Obudowa: ${m.desktop.caseType}\n`;
+      if (m.desktop.ram) message += `   RAM: ${m.desktop.ram}\n`;
+      if (m.desktop.storage) message += `   Dysk: ${m.desktop.storage}\n`;
+      if (m.desktop.price) message += `   Cena: ${m.desktop.price}\n`;
+      message += '\n';
+    });
+    message += `Statystyki: ${matchResult.matchedCount}/${matchResult.totalCount} PC spelnia kryteria`;
+    if (rejected.length > 0) {
+      message += `\n\n--- Odrzucone (${rejected.length}) ---\n\n`;
+      rejected.forEach((m, i) => {
+        message += `${i + 1}. ${m.desktop.model || 'PC'}\n   Powod: ${m.reason}\n\n`;
+      });
+    }
+    return this.sendNotificationWithRetry({
+      title,
+      message,
+      priority: 'high',
+      tags: ['desktop', 'offer', 'match'],
+    });
+  }
+
+  async sendDesktopRejectedNotification(
+    emailSubject: string,
+    matchResult: DesktopEmailMatchResult
+  ): Promise<boolean> {
+    if (!this.config.enabled) return false;
+    const rejected = matchResult.matches.filter(m => !m.isMatch);
+    if (rejected.length === 0) return false;
+    const title = `Oferta PC bez pasujacych (${rejected.length} odrzuconych)`;
+    let message = `Email: ${emailSubject}\n\n`;
+    rejected.forEach((m, i) => {
+      message += `${i + 1}. ${m.desktop.model || 'PC'}\n   Powod: ${m.reason}\n`;
+      if (m.desktop.price) message += `   Cena: ${m.desktop.price}\n`;
+      message += '\n';
+    });
+    return this.sendNotificationWithRetry({
+      title,
+      message,
+      priority: 'default',
+      tags: ['desktop', 'offer', 'rejected'],
     });
   }
 

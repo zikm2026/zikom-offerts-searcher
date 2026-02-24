@@ -1,8 +1,10 @@
-import { EmailMessage, AnalyzedEmail, ExcelData } from '../../../types/email';
+import { EmailMessage, AnalyzedEmail, ExcelData, MonitorData, DesktopData, OfferType } from '../../../types/email';
 import logger from '../../../utils/logger';
 import { IEmailAnalyzer } from '../interfaces/IEmailAnalyzer';
 import { IExcelParser } from '../interfaces/IExcelParser';
 import { ILaptopMatcher } from '../interfaces/ILaptopMatcher';
+import { IMonitorMatcher } from '../interfaces/IMonitorMatcher';
+import { IDesktopMatcher } from '../interfaces/IDesktopMatcher';
 import { INotificationService } from '../interfaces/INotificationService';
 import { IEmailStatsService } from '../interfaces/IEmailStatsService';
 import { IEmailLogger } from '../interfaces/IEmailLogger';
@@ -21,7 +23,9 @@ export class EmailProcessor {
     private notificationService: INotificationService | null,
     private statsService: IEmailStatsService,
     private emailLogger: IEmailLogger,
-    private geminiService: GeminiService | null = null
+    private geminiService: GeminiService | null = null,
+    private monitorMatcher: IMonitorMatcher | null = null,
+    private desktopMatcher: IDesktopMatcher | null = null
   ) {}
 
   async processEmail(message: EmailMessage): Promise<AnalyzedEmail> {
@@ -76,22 +80,177 @@ export class EmailProcessor {
     }
 
     logger.debug(`🎯 OFFER DETECTED! Confidence: ${analysis.confidence}%`);
-    logger.debug(`📱 Category: ${analysis.category || 'unknown'}`);
+    logger.debug(`📱 Category: ${analysis.category || 'unknown'}, offerType: ${analysis.offerType || 'null'}`);
 
-    if (!this.isLaptopOffer(analysis)) {
-      logger.info(`⏭️ Oferta nie dotyczy laptopów (${analysis.category || '?'} / ${analysis.details?.productType || '?'}) – pomijam`);
-      await this.statsService.recordEmailStat({
-        status: 'rejected',
-        reason: 'Oferta nie dotyczy laptopów (monitory/akcesoria/inne)',
-        subject: message.subject,
-        from: message.from,
-      });
-      analyzedMessage.analysis = { ...analysis, isOffer: false };
+    const offerType: OfferType | undefined = analysis.offerType || (this.isLaptopOffer(analysis) ? 'laptop' : undefined);
+
+    if (offerType === 'monitor' && this.monitorMatcher) {
+      await this.processMonitorOffer(analyzedMessage, message);
+      return analyzedMessage;
+    }
+    if (offerType === 'desktop' && this.desktopMatcher) {
+      await this.processDesktopOffer(analyzedMessage, message);
+      return analyzedMessage;
+    }
+    if (offerType === 'laptop' || !offerType) {
+      if (!this.isLaptopOffer(analysis)) {
+        logger.info(`⏭️ Oferta nie dotyczy laptopów (${analysis.category || '?'}) – pomijam`);
+        await this.statsService.recordEmailStat({
+          status: 'rejected',
+          reason: 'Oferta nie dotyczy laptopów (monitory/akcesoria/inne)',
+          subject: message.subject,
+          from: message.from,
+        });
+        analyzedMessage.analysis = { ...analysis, isOffer: false };
+        return analyzedMessage;
+      }
+      await this.processExcelAttachments(analyzedMessage, message);
       return analyzedMessage;
     }
 
-    await this.processExcelAttachments(analyzedMessage, message);
+    await this.statsService.recordEmailStat({
+      status: 'rejected',
+      reason: `Nieobsługiwany typ oferty: ${offerType}`,
+      subject: message.subject,
+      from: message.from,
+    });
     return analyzedMessage;
+  }
+
+  private async processMonitorOffer(_analyzedMessage: AnalyzedEmail, message: EmailMessage): Promise<void> {
+    const attachments = (message as any).attachments || [];
+    const excelAttachments = attachments.filter((att: any) =>
+      att.filename?.toLowerCase().endsWith('.xlsx') || att.filename?.toLowerCase().endsWith('.xls') || att.contentType?.includes('spreadsheet')
+    );
+
+    let monitorData: MonitorData = { monitors: [], totalQuantity: 0 };
+
+    if (excelAttachments.length > 0) {
+      for (const excelAtt of excelAttachments) {
+        if (!excelAtt.content) continue;
+        const buffer = Buffer.isBuffer(excelAtt.content) ? excelAtt.content : Buffer.from(excelAtt.content);
+        monitorData = await this.excelParser.parseExcelMonitors(buffer);
+        if (monitorData.monitors.length > 0) break;
+      }
+    }
+    if (monitorData.monitors.length === 0 && this.geminiService) {
+      try {
+        monitorData = await this.geminiService.parseEmailContentMonitors(message);
+      } catch (e) {
+        logger.error('Error parsing email content for monitors:', e);
+      }
+    }
+
+    if (monitorData.monitors.length === 0) {
+      await this.statsService.recordEmailStat({
+        status: 'rejected',
+        reason: 'Brak danych monitorów w mailu',
+        subject: message.subject,
+        from: message.from,
+        productType: 'monitor',
+      });
+      return;
+    }
+
+    const matchResult = await this.monitorMatcher!.matchMonitors(monitorData);
+    if (matchResult.shouldNotify) {
+      await this.statsService.recordEmailStat({
+        status: 'accepted',
+        subject: message.subject,
+        from: message.from,
+        productType: 'monitor',
+      });
+      if (this.notificationService) {
+        try {
+          await this.notificationService.sendMonitorMatchNotification(message.subject, matchResult);
+        } catch (e) {
+          logger.error('Error sending monitor notification:', e);
+        }
+      }
+    } else {
+      await this.statsService.recordEmailStat({
+        status: 'rejected',
+        reason: matchResult.allMatched ? 'Ceny za wysokie' : 'Nie wszystkie monitory w bazie',
+        subject: message.subject,
+        from: message.from,
+        productType: 'monitor',
+      });
+      if (this.notificationService && matchResult.matches.length > 0) {
+        try {
+          await this.notificationService.sendMonitorRejectedNotification(message.subject, matchResult);
+        } catch (e) {
+          logger.error('Error sending monitor rejected notification:', e);
+        }
+      }
+    }
+  }
+
+  private async processDesktopOffer(_analyzedMessage: AnalyzedEmail, message: EmailMessage): Promise<void> {
+    const attachments = (message as any).attachments || [];
+    const excelAttachments = attachments.filter((att: any) =>
+      att.filename?.toLowerCase().endsWith('.xlsx') || att.filename?.toLowerCase().endsWith('.xls') || att.contentType?.includes('spreadsheet')
+    );
+
+    let desktopData: DesktopData = { desktops: [], totalQuantity: 0 };
+
+    if (excelAttachments.length > 0) {
+      for (const excelAtt of excelAttachments) {
+        if (!excelAtt.content) continue;
+        const buffer = Buffer.isBuffer(excelAtt.content) ? excelAtt.content : Buffer.from(excelAtt.content);
+        desktopData = await this.excelParser.parseExcelDesktops(buffer);
+        if (desktopData.desktops.length > 0) break;
+      }
+    }
+    if (desktopData.desktops.length === 0 && this.geminiService) {
+      try {
+        desktopData = await this.geminiService.parseEmailContentDesktops(message);
+      } catch (e) {
+        logger.error('Error parsing email content for desktops:', e);
+      }
+    }
+
+    if (desktopData.desktops.length === 0) {
+      await this.statsService.recordEmailStat({
+        status: 'rejected',
+        reason: 'Brak danych PC w mailu',
+        subject: message.subject,
+        from: message.from,
+        productType: 'desktop',
+      });
+      return;
+    }
+
+    const matchResult = await this.desktopMatcher!.matchDesktops(desktopData);
+    if (matchResult.shouldNotify) {
+      await this.statsService.recordEmailStat({
+        status: 'accepted',
+        subject: message.subject,
+        from: message.from,
+        productType: 'desktop',
+      });
+      if (this.notificationService) {
+        try {
+          await this.notificationService.sendDesktopMatchNotification(message.subject, matchResult);
+        } catch (e) {
+          logger.error('Error sending desktop notification:', e);
+        }
+      }
+    } else {
+      await this.statsService.recordEmailStat({
+        status: 'rejected',
+        reason: matchResult.allMatched ? 'Ceny za wysokie' : 'Nie wszystkie PC w bazie',
+        subject: message.subject,
+        from: message.from,
+        productType: 'desktop',
+      });
+      if (this.notificationService && matchResult.matches.length > 0) {
+        try {
+          await this.notificationService.sendDesktopRejectedNotification(message.subject, matchResult);
+        } catch (e) {
+          logger.error('Error sending desktop rejected notification:', e);
+        }
+      }
+    }
   }
 
   private async processExcelAttachments(
@@ -158,6 +317,7 @@ export class EmailProcessor {
         reason: 'Błąd parsowania Excel (Gemini API niedostępny lub przeciążony)',
         subject: message.subject,
         from: message.from,
+        productType: 'laptop',
       });
       if (analyzedMessage.analysis) {
         analyzedMessage.analysis = { ...analyzedMessage.analysis, isOffer: false };
@@ -199,6 +359,7 @@ export class EmailProcessor {
         status: 'accepted',
         subject: message.subject,
         from: message.from,
+        productType: 'laptop',
       });
 
       if (this.notificationService) {
@@ -222,6 +383,7 @@ export class EmailProcessor {
         reason,
         subject: message.subject,
         from: message.from,
+        productType: 'laptop',
       });
 
       if (this.notificationService && result.matchResult.matches.length > 0) {

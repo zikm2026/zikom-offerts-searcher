@@ -3,6 +3,7 @@ export interface EmailStatInput {
   reason?: string;
   subject?: string;
   from?: string;
+  productType?: 'laptop' | 'monitor' | 'desktop';
 }
 
 export interface IEmailStatsService {

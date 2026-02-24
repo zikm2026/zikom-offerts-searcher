@@ -13,12 +13,18 @@ import { EmailProcessor } from './processors/EmailProcessor';
 import { GeminiEmailAnalyzer } from './adapters/GeminiEmailAnalyzer';
 import { ExcelParserAdapter } from './adapters/ExcelParserAdapter';
 import { LaptopMatcherAdapter } from './adapters/LaptopMatcherAdapter';
+import { MonitorMatcherAdapter } from './adapters/MonitorMatcherAdapter';
+import { DesktopMatcherAdapter } from './adapters/DesktopMatcherAdapter';
 import { NotificationServiceAdapter } from './adapters/NotificationServiceAdapter';
 import { EmailStatsServiceAdapter } from './adapters/EmailStatsServiceAdapter';
 import { EmailLoggerAdapter } from './adapters/EmailLoggerAdapter';
+import { MonitorMatcherService } from '../monitorMatcher';
+import { DesktopMatcherService } from '../desktopMatcher';
 import { IEmailAnalyzer } from './interfaces/IEmailAnalyzer';
 import { IExcelParser } from './interfaces/IExcelParser';
 import { ILaptopMatcher } from './interfaces/ILaptopMatcher';
+import { IMonitorMatcher } from './interfaces/IMonitorMatcher';
+import { IDesktopMatcher } from './interfaces/IDesktopMatcher';
 import { INotificationService } from './interfaces/INotificationService';
 import { IEmailStatsService } from './interfaces/IEmailStatsService';
 import { IEmailLogger } from './interfaces/IEmailLogger';
@@ -45,7 +51,9 @@ class EmailService extends EventEmitter {
     
     const laptopMatcherService = new LaptopMatcherService();
     const laptopMatcher: ILaptopMatcher = new LaptopMatcherAdapter(laptopMatcherService);
-    
+    const monitorMatcher: IMonitorMatcher = new MonitorMatcherAdapter(new MonitorMatcherService());
+    const desktopMatcher: IDesktopMatcher = new DesktopMatcherAdapter(new DesktopMatcherService());
+
     const statsService = new EmailStatsService();
     const emailStats: IEmailStatsService = new EmailStatsServiceAdapter(statsService);
     
@@ -86,7 +94,9 @@ class EmailService extends EventEmitter {
       notification,
       emailStats,
       emailLogger,
-      geminiService || null
+      geminiService || null,
+      monitorMatcher,
+      desktopMatcher
     );
   }
 

@@ -21,10 +21,11 @@ ODPOWIEDZ W FORMACIE JSON:
 {
   "isOffer": true/false,
   "confidence": 0-100,
-  "category": "laptop" | "desktop" | "components" | "accessories" | "other" | null,
+  "category": "laptop" | "monitor" | "desktop" | "components" | "accessories" | "other" | null,
+  "offerType": "laptop" | "monitor" | "desktop" | null,
   "details": {
     "productType": "typ produktu lub null",
-    "brand": "marka lub null", 
+    "brand": "marka lub null",
     "model": "model lub null",
     "price": "cena lub null",
     "discount": "rabat/promocja lub null",
@@ -32,6 +33,8 @@ ODPOWIEDZ W FORMACIE JSON:
   },
   "reasoning": "krótkie uzasadnienie decyzji"
 }
+
+offerType ustaw na: "laptop" gdy oferta laptopów/notebooków; "monitor" gdy oferta monitorów (ekrany, cale, rozdzielczość); "desktop" gdy oferta komputerów stacjonarnych/PC (Tower, SFF, Mini). Gdy nie wiadomo – null.
 
 EMAIL DO ANALIZY:
 ${emailContent}
