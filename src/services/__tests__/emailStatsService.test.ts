@@ -35,6 +35,7 @@ describe('EmailStatsService', () => {
           reason: null,
           subject: 'Test subject',
           from: 'test@test.com',
+          productType: null,
         },
       });
     });
@@ -95,7 +96,14 @@ describe('EmailStatsService', () => {
       expect(result).toHaveProperty('5d');
       expect(result).toHaveProperty('30d');
       expect(result).toHaveProperty('max');
-      expect(result['1d']).toEqual({ processed: 1, accepted: 1, rejected: 1 });
+      expect(result['1d'].processed).toBe(1);
+      expect(result['1d'].accepted).toBe(1);
+      expect(result['1d'].rejected).toBe(1);
+      expect(result['1d'].byProduct).toEqual({
+        laptop: { accepted: 1 },
+        monitor: { accepted: 1 },
+        desktop: { accepted: 1 },
+      });
     });
   });
 });

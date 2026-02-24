@@ -34,6 +34,26 @@ describe('gemini excelDataParser', () => {
       const result = parseExcelResponse(text);
       expect(result.laptops[0].price).toBeUndefined();
     });
+
+    it('parses amount per laptop when present and > 0', () => {
+      const text = `{
+        "laptops": [
+          { "model": "Dell 7430", "ram": "16 GB", "storage": "512 GB", "price": "400 EUR", "amount": 10 }
+        ],
+        "totalQuantity": 10
+      }`;
+      const result = parseExcelResponse(text);
+      expect(result.laptops).toHaveLength(1);
+      expect(result.laptops[0].amount).toBe(10);
+      expect(result.totalQuantity).toBe(10);
+    });
+
+    it('omits amount when 0 or invalid', () => {
+      const text = `{"laptops":[{"model":"X","ram":"8 GB","storage":"256 GB","price":"100 EUR","amount":0},{"model":"Y","amount":"n/a"}]}`;
+      const result = parseExcelResponse(text);
+      expect(result.laptops[0].amount).toBeUndefined();
+      expect(result.laptops[1].amount).toBeUndefined();
+    });
   });
 
   describe('parseEmailContentResponse', () => {

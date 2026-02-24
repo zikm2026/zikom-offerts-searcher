@@ -86,6 +86,54 @@ describe('LaptopMatcherService', () => {
       expect(typeof result.allLaptopsMatched).toBe('boolean');
       expect(typeof result.shouldNotify).toBe('boolean');
     });
+
+    it('uses quantity-weighted totalCount and matchedCount when amount is set', async () => {
+      const watched = {
+        id: 'w1',
+        model: 'Dell Latitude 7430',
+        maxPriceWorst: '200 EUR',
+        maxPriceBest: '600 EUR',
+        ramFrom: '8 GB',
+        ramTo: '32 GB',
+        storageFrom: '256 GB',
+        storageTo: '1024 GB',
+        gradeFrom: null,
+        gradeTo: null,
+        graphicsCard: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      (prisma.watchedLaptop.findMany as jest.Mock).mockResolvedValue([watched]);
+      (prisma.appSetting.findUnique as jest.Mock).mockResolvedValue({ value: '80' });
+
+      const result = await service.matchEmailLaptops({
+        laptops: [
+          { model: 'Dell Latitude 7430', ram: '16 GB', storage: '512 GB', price: '400 EUR', amount: 10 },
+          { model: 'Unknown', ram: '8 GB', storage: '256 GB', price: '100 EUR', amount: 5 },
+        ],
+        totalQuantity: 15,
+      });
+
+      expect(result.totalCount).toBe(15);
+      expect(result.matchedCount).toBe(10);
+      expect(result.matches).toHaveLength(2);
+    });
+
+    it('when no watched laptops, totalCount is sum of amounts (or 1 per row)', async () => {
+      (prisma.watchedLaptop.findMany as jest.Mock).mockResolvedValue([]);
+      (prisma.appSetting.findUnique as jest.Mock).mockResolvedValue({ value: '90' });
+
+      const result = await service.matchEmailLaptops({
+        laptops: [
+          { model: 'A', ram: '8 GB', storage: '256 GB', price: '100 EUR', amount: 3 },
+          { model: 'B', ram: '16 GB', storage: '512 GB', price: '200 EUR' },
+        ],
+        totalQuantity: 4,
+      });
+
+      expect(result.totalCount).toBe(4);
+      expect(result.matchedCount).toBe(0);
+    });
   });
 
   describe('logMatchResults', () => {

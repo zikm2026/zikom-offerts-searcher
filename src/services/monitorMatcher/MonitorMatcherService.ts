@@ -24,7 +24,7 @@ function parseResolution(s: string | undefined): { w: number; h: number } | null
 }
 
 function resolutionInRange(offerRes: { w: number; h: number } | null, minRes: string | null, maxRes: string | null): boolean {
-  if (!offerRes) return false;
+  if (!offerRes) return true;
   const min = parseResolution(minRes || '');
   const max = parseResolution(maxRes || '');
   const pixels = offerRes.w * offerRes.h;
