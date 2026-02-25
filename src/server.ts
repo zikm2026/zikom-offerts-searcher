@@ -50,9 +50,10 @@ if (config.email) {
 
   emailService.on('newMail', (message: AnalyzedEmail) => {
     if (message.analysis?.isOffer) {
-      logger.info(`🎯 Laptop offer processed - From: ${message.from}, Subject: ${message.subject}`);
+      const type = message.analysis?.offerType === 'monitor' ? 'Monitor' : message.analysis?.offerType === 'desktop' ? 'PC' : 'Laptop';
+      logger.info(`🎯 Oferta ${type} przetworzona – From: ${message.from}, Subject: ${message.subject}`);
     } else {
-      logger.debug(`📧 Regular email processed - From: ${message.from}, Subject: ${message.subject}`);
+      logger.debug(`📧 Zwykły email przetworzony – From: ${message.from}, Subject: ${message.subject}`);
     }
   });
 
