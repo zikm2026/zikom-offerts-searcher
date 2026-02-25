@@ -664,6 +664,84 @@
     </div>
   </div>
 
+  <div id="editMonitorModal" class="modal-overlay" aria-hidden="true">
+    <div class="modal" role="dialog" aria-labelledby="editMonitorModalTitle">
+      <h2 id="editMonitorModalTitle">Edytuj monitor</h2>
+      <form id="editMonitorForm">
+        <input type="hidden" id="editMonitorId" name="id">
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Wielkość od (cale)</label>
+            <input type="number" id="editMonitorSizeMin" name="sizeInchesMin" placeholder="np. 24" step="0.1" min="15" max="40">
+          </div>
+          <div class="form-group">
+            <label>Wielkość do (cale)</label>
+            <input type="number" id="editMonitorSizeMax" name="sizeInchesMax" placeholder="np. 27" step="0.1" min="15" max="40">
+          </div>
+          <div class="form-group">
+            <label>Rozdzielczość min</label>
+            <input type="text" id="editMonitorResMin" name="resolutionMin" placeholder="np. 1920x1080">
+          </div>
+          <div class="form-group">
+            <label>Rozdzielczość max</label>
+            <input type="text" id="editMonitorResMax" name="resolutionMax" placeholder="np. 2560x1440">
+          </div>
+          <div class="form-group">
+            <label>Maks. cena (EUR)</label>
+            <input type="text" id="editMonitorMaxPrice" name="maxPrice" placeholder="np. 500">
+          </div>
+        </div>
+        <div class="form-actions" style="margin-top: 15px;">
+          <button type="submit" class="btn btn-primary">Zapisz</button>
+          <button type="button" id="editMonitorModalCancel" class="btn btn-secondary">Anuluj</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="editDesktopModal" class="modal-overlay" aria-hidden="true">
+    <div class="modal" role="dialog" aria-labelledby="editDesktopModalTitle">
+      <h2 id="editDesktopModalTitle">Edytuj komputer stacjonarny</h2>
+      <form id="editDesktopForm">
+        <input type="hidden" id="editDesktopId" name="id">
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Typ obudowy *</label>
+            <select id="editDesktopCaseType" name="caseType" required>
+              <option value="Tower">Tower</option>
+              <option value="SFF">SFF (mała)</option>
+              <option value="Mini">Mini</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Maks. cena</label>
+            <input type="text" id="editDesktopMaxPrice" name="maxPrice" placeholder="np. 800 EUR">
+          </div>
+          <div class="form-group">
+            <label>RAM od</label>
+            <input type="text" id="editDesktopRamFrom" name="ramFrom" placeholder="np. 8 GB">
+          </div>
+          <div class="form-group">
+            <label>RAM do</label>
+            <input type="text" id="editDesktopRamTo" name="ramTo" placeholder="np. 32 GB">
+          </div>
+          <div class="form-group">
+            <label>Dysk od</label>
+            <input type="text" id="editDesktopStorageFrom" name="storageFrom" placeholder="np. 256 GB">
+          </div>
+          <div class="form-group">
+            <label>Dysk do</label>
+            <input type="text" id="editDesktopStorageTo" name="storageTo" placeholder="np. 1 TB">
+          </div>
+        </div>
+        <div class="form-actions" style="margin-top: 15px;">
+          <button type="submit" class="btn btn-primary">Zapisz</button>
+          <button type="button" id="editDesktopModalCancel" class="btn btn-secondary">Anuluj</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <script>
     const API_BASE = '/api/admin/laptops';
     const SETTINGS_API = '/api/admin/settings';
@@ -983,9 +1061,10 @@
     });
 
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && document.getElementById('editModal').classList.contains('active')) {
-        closeEditModal();
-      }
+      if (e.key !== 'Escape') return;
+      if (document.getElementById('editModal').classList.contains('active')) closeEditModal();
+      else if (document.getElementById('editMonitorModal').classList.contains('active')) closeEditMonitorModal();
+      else if (document.getElementById('editDesktopModal').classList.contains('active')) closeEditDesktopModal();
     });
 
     async function deleteLaptop(id) {
@@ -1229,12 +1308,15 @@
         monitors.forEach(m => {
           const size = (m.sizeInchesMin != null || m.sizeInchesMax != null) ? (m.sizeInchesMin || '?') + ' - ' + (m.sizeInchesMax || '?') : '-';
           const res = [m.resolutionMin, m.resolutionMax].filter(Boolean).join(' - ') || '-';
-          html += `<tr><td>${escapeHtml(size)}</td><td>${escapeHtml(res)}</td><td>${escapeHtml(m.maxPrice || '-')}</td><td><button class="btn btn-danger btn-small" data-delete-monitor="${m.id}">Usun</button></td></tr>`;
+          html += `<tr><td>${escapeHtml(size)}</td><td>${escapeHtml(res)}</td><td>${escapeHtml(m.maxPrice || '-')}</td><td><button class="btn btn-secondary btn-small" data-edit-monitor="${m.id}">Edytuj</button> <button class="btn btn-danger btn-small" data-delete-monitor="${m.id}">Usun</button></td></tr>`;
         });
         html += '</tbody></table></div>';
         container.innerHTML = html;
         container.querySelectorAll('[data-delete-monitor]').forEach(btn => {
           btn.addEventListener('click', () => deleteMonitor(btn.getAttribute('data-delete-monitor')));
+        });
+        container.querySelectorAll('[data-edit-monitor]').forEach(btn => {
+          btn.addEventListener('click', () => openEditMonitorModal(btn.getAttribute('data-edit-monitor')));
         });
       } catch (e) {
         container.innerHTML = '<div class="error">Blad ladowania monitorow</div>';
@@ -1268,12 +1350,15 @@
         desktops.forEach(d => {
           const ram = [d.ramFrom, d.ramTo].filter(Boolean).join(' - ') || '-';
           const storage = [d.storageFrom, d.storageTo].filter(Boolean).join(' - ') || '-';
-          html += `<tr><td>${escapeHtml(d.caseType || '-')}</td><td>${escapeHtml(d.maxPrice || '-')}</td><td>${escapeHtml(ram)}</td><td>${escapeHtml(storage)}</td><td><button class="btn btn-danger btn-small" data-delete-desktop="${d.id}">Usun</button></td></tr>`;
+          html += `<tr><td>${escapeHtml(d.caseType || '-')}</td><td>${escapeHtml(d.maxPrice || '-')}</td><td>${escapeHtml(ram)}</td><td>${escapeHtml(storage)}</td><td><button class="btn btn-secondary btn-small" data-edit-desktop="${d.id}">Edytuj</button> <button class="btn btn-danger btn-small" data-delete-desktop="${d.id}">Usun</button></td></tr>`;
         });
         html += '</tbody></table></div>';
         container.innerHTML = html;
         container.querySelectorAll('[data-delete-desktop]').forEach(btn => {
           btn.addEventListener('click', () => deleteDesktop(btn.getAttribute('data-delete-desktop')));
+        });
+        container.querySelectorAll('[data-edit-desktop]').forEach(btn => {
+          btn.addEventListener('click', () => openEditDesktopModal(btn.getAttribute('data-edit-desktop')));
         });
       } catch (e) {
         container.innerHTML = '<div class="error">Blad ladowania PC</div>';
@@ -1291,6 +1376,98 @@
         showMessage('Blad usuwania', 'error');
       }
     }
+
+    function openEditMonitorModal(id) {
+      const m = monitors.find(x => x.id === id);
+      if (!m) return;
+      document.getElementById('editMonitorId').value = m.id;
+      document.getElementById('editMonitorSizeMin').value = m.sizeInchesMin != null ? m.sizeInchesMin : '';
+      document.getElementById('editMonitorSizeMax').value = m.sizeInchesMax != null ? m.sizeInchesMax : '';
+      document.getElementById('editMonitorResMin').value = m.resolutionMin || '';
+      document.getElementById('editMonitorResMax').value = m.resolutionMax || '';
+      document.getElementById('editMonitorMaxPrice').value = m.maxPrice || '';
+      document.getElementById('editMonitorModal').classList.add('active');
+    }
+    function closeEditMonitorModal() {
+      document.getElementById('editMonitorModal').classList.remove('active');
+    }
+
+    function openEditDesktopModal(id) {
+      const d = desktops.find(x => x.id === id);
+      if (!d) return;
+      document.getElementById('editDesktopId').value = d.id;
+      document.getElementById('editDesktopCaseType').value = d.caseType || 'Tower';
+      document.getElementById('editDesktopMaxPrice').value = d.maxPrice || '';
+      document.getElementById('editDesktopRamFrom').value = d.ramFrom || '';
+      document.getElementById('editDesktopRamTo').value = d.ramTo || '';
+      document.getElementById('editDesktopStorageFrom').value = d.storageFrom || '';
+      document.getElementById('editDesktopStorageTo').value = d.storageTo || '';
+      document.getElementById('editDesktopModal').classList.add('active');
+    }
+    function closeEditDesktopModal() {
+      document.getElementById('editDesktopModal').classList.remove('active');
+    }
+
+    document.getElementById('editMonitorForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const id = document.getElementById('editMonitorId').value;
+      const fd = new FormData(e.target);
+      try {
+        const r = await fetch('/api/admin/monitors/' + id, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            sizeInchesMin: fd.get('sizeInchesMin') ? parseFloat(fd.get('sizeInchesMin')) : null,
+            sizeInchesMax: fd.get('sizeInchesMax') ? parseFloat(fd.get('sizeInchesMax')) : null,
+            resolutionMin: fd.get('resolutionMin') || null,
+            resolutionMax: fd.get('resolutionMax') || null,
+            maxPrice: fd.get('maxPrice') || null,
+          })
+        });
+        if (!r.ok) throw new Error();
+        showMessage('Monitor zaktualizowany');
+        closeEditMonitorModal();
+        loadMonitors();
+      } catch (err) {
+        showMessage('Blad aktualizacji monitora', 'error');
+      }
+    });
+    document.getElementById('editMonitorModalCancel').addEventListener('click', closeEditMonitorModal);
+    document.getElementById('editMonitorModal').addEventListener('click', (e) => {
+      if (e.target.id === 'editMonitorModal') closeEditMonitorModal();
+    });
+
+    document.getElementById('editDesktopForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const id = document.getElementById('editDesktopId').value;
+      const fd = new FormData(e.target);
+      try {
+        const r = await fetch('/api/admin/desktops/' + id, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            caseType: fd.get('caseType'),
+            maxPrice: fd.get('maxPrice') || null,
+            ramFrom: fd.get('ramFrom') || null,
+            ramTo: fd.get('ramTo') || null,
+            storageFrom: fd.get('storageFrom') || null,
+            storageTo: fd.get('storageTo') || null,
+          })
+        });
+        if (!r.ok) throw new Error();
+        showMessage('PC zaktualizowany');
+        closeEditDesktopModal();
+        loadDesktops();
+      } catch (err) {
+        showMessage('Blad aktualizacji PC', 'error');
+      }
+    });
+    document.getElementById('editDesktopModalCancel').addEventListener('click', closeEditDesktopModal);
+    document.getElementById('editDesktopModal').addEventListener('click', (e) => {
+      if (e.target.id === 'editDesktopModal') closeEditDesktopModal();
+    });
 
     document.getElementById('addMonitorForm').addEventListener('submit', async (e) => {
       e.preventDefault();
