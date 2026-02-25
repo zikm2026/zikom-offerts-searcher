@@ -3,6 +3,7 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import { basicAuth } from '../middleware/basicAuth';
 import logger from '../utils/logger';
+import type { Prisma } from '@prisma/client';
 import prisma from '../lib/prisma';
 import EmailStatsService from '../services/emailStatsService';
 
@@ -62,13 +63,30 @@ router.get('/api/admin/laptops', basicAuth, async (_req: Request, res: Response)
   }
 });
 
-async function getSettings(): Promise<{ matchThreshold: number }> {
-  const row = await prisma.appSetting.findUnique({
-    where: { key: 'matchThreshold' },
+const THRESHOLD_KEYS = ['matchThreshold', 'matchThresholdLaptops', 'matchThresholdMonitors', 'matchThresholdDesktops'] as const;
+
+async function getSettings(): Promise<{
+  matchThreshold: number;
+  matchThresholdLaptops: number;
+  matchThresholdMonitors: number;
+  matchThresholdDesktops: number;
+}> {
+  const rows = await prisma.appSetting.findMany({
+    where: { key: { in: [...THRESHOLD_KEYS] } },
   });
-  const value = row?.value ? parseInt(row.value, 10) : 90;
-  const matchThreshold = Number.isNaN(value) ? 90 : Math.min(100, Math.max(0, value));
-  return { matchThreshold };
+  const map = new Map(rows.map((r) => [r.key, r.value]));
+  const parse = (key: string): number => {
+    const v = map.get(key);
+    const n = v ? parseInt(v, 10) : NaN;
+    return Number.isNaN(n) ? 90 : Math.min(100, Math.max(0, n));
+  };
+  const global = parse('matchThreshold');
+  return {
+    matchThreshold: global,
+    matchThresholdLaptops: map.has('matchThresholdLaptops') ? parse('matchThresholdLaptops') : global,
+    matchThresholdMonitors: map.has('matchThresholdMonitors') ? parse('matchThresholdMonitors') : global,
+    matchThresholdDesktops: map.has('matchThresholdDesktops') ? parse('matchThresholdDesktops') : global,
+  };
 }
 
 router.get('/api/admin/settings', basicAuth, async (_req: Request, res: Response) => {
@@ -83,19 +101,24 @@ router.get('/api/admin/settings', basicAuth, async (_req: Request, res: Response
 
 router.patch('/api/admin/settings', basicAuth, async (req: Request, res: Response) => {
   try {
-    const matchThreshold =
-      req.body.matchThreshold !== undefined
-        ? sanitizeInt(req.body.matchThreshold, 0, 100, 90)
-        : undefined;
-    if (matchThreshold === undefined) {
-      return res.status(400).json({ success: false, error: 'matchThreshold is required' });
+    const updates: { matchThreshold?: number; matchThresholdLaptops?: number; matchThresholdMonitors?: number; matchThresholdDesktops?: number } = {};
+    if (req.body.matchThreshold !== undefined) updates.matchThreshold = sanitizeInt(req.body.matchThreshold, 0, 100, 90);
+    if (req.body.matchThresholdLaptops !== undefined) updates.matchThresholdLaptops = sanitizeInt(req.body.matchThresholdLaptops, 0, 100, 90);
+    if (req.body.matchThresholdMonitors !== undefined) updates.matchThresholdMonitors = sanitizeInt(req.body.matchThresholdMonitors, 0, 100, 90);
+    if (req.body.matchThresholdDesktops !== undefined) updates.matchThresholdDesktops = sanitizeInt(req.body.matchThresholdDesktops, 0, 100, 90);
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({ success: false, error: 'Provide at least one threshold' });
     }
-    await prisma.appSetting.upsert({
-      where: { key: 'matchThreshold' },
-      create: { key: 'matchThreshold', value: String(matchThreshold) },
-      update: { value: String(matchThreshold) },
-    });
-    return res.json({ success: true, settings: { matchThreshold } });
+    for (const [key, value] of Object.entries(updates)) {
+      if (value === undefined) continue;
+      await prisma.appSetting.upsert({
+        where: { key },
+        create: { key, value: String(value) },
+        update: { value: String(value) },
+      });
+    }
+    const settings = await getSettings();
+    return res.json({ success: true, settings });
   } catch (error) {
     logger.error('Error updating settings:', error);
     return res.status(500).json({ success: false, error: 'Failed to update settings' });
@@ -215,12 +238,13 @@ router.post('/api/admin/monitors', basicAuth, async (req: Request, res: Response
     const sizeInchesMax = req.body.sizeInchesMax != null ? parseFloat(String(req.body.sizeInchesMax)) : null;
     const monitor = await prisma.watchedMonitor.create({
       data: {
+        model: sanitizeString(req.body.model),
         sizeInchesMin: Number.isNaN(sizeInchesMin) ? null : sizeInchesMin,
         sizeInchesMax: Number.isNaN(sizeInchesMax) ? null : sizeInchesMax,
         resolutionMin: sanitizeString(req.body.resolutionMin),
         resolutionMax: sanitizeString(req.body.resolutionMax),
         maxPrice: sanitizeString(req.body.maxPrice),
-      },
+      } as unknown as Prisma.WatchedMonitorCreateInput,
     });
     return res.json({ success: true, monitor });
   } catch (error) {
@@ -233,6 +257,7 @@ router.put('/api/admin/monitors/:id', basicAuth, async (req: Request, res: Respo
   if (!isValidUUID(req.params.id)) return res.status(400).json({ success: false, error: 'Invalid id' });
   try {
     const data: any = {};
+    if (req.body.model !== undefined) data.model = sanitizeString(req.body.model);
     if (req.body.sizeInchesMin !== undefined) data.sizeInchesMin = req.body.sizeInchesMin == null ? null : parseFloat(String(req.body.sizeInchesMin));
     if (req.body.sizeInchesMax !== undefined) data.sizeInchesMax = req.body.sizeInchesMax == null ? null : parseFloat(String(req.body.sizeInchesMax));
     if (req.body.resolutionMin !== undefined) data.resolutionMin = sanitizeString(req.body.resolutionMin);

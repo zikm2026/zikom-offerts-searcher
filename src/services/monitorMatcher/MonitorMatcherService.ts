@@ -46,8 +46,17 @@ function sizeInRange(offerSize: number | null, minInches: number | null, maxInch
   return true;
 }
 
+function modelMatches(offerModel: string | undefined, watchedModel: string | null | undefined): boolean {
+  if (!watchedModel || watchedModel.trim() === '') return true;
+  const offer = (offerModel ?? '').trim().toLowerCase();
+  const watched = watchedModel.trim().toLowerCase();
+  if (!offer) return false;
+  return offer.includes(watched) || watched.includes(offer);
+}
+
 const NOT_IN_DB_PLACEHOLDER = {
   id: '',
+  model: null as string | null,
   sizeInchesMin: null as number | null,
   sizeInchesMax: null as number | null,
   resolutionMin: null as string | null,
@@ -62,8 +71,12 @@ export class MonitorMatcherService {
     this.currencyService = new CurrencyService();
   }
 
-  private async getGlobalMatchThreshold(): Promise<number> {
-    const row = await prisma.appSetting.findUnique({ where: { key: 'matchThreshold' } });
+  private async getMatchThreshold(): Promise<number> {
+    const [monitorRow, globalRow] = await Promise.all([
+      prisma.appSetting.findUnique({ where: { key: 'matchThresholdMonitors' } }),
+      prisma.appSetting.findUnique({ where: { key: 'matchThreshold' } }),
+    ]);
+    const row = monitorRow ?? globalRow;
     if (!row?.value) return DEFAULT_THRESHOLD;
     const n = parseInt(row.value, 10);
     return Number.isNaN(n) ? DEFAULT_THRESHOLD : Math.min(100, Math.max(0, n));
@@ -73,7 +86,7 @@ export class MonitorMatcherService {
     try {
       const [watchedMonitors, thresholdPercent] = await Promise.all([
         prisma.watchedMonitor.findMany(),
-        this.getGlobalMatchThreshold(),
+        this.getMatchThreshold(),
       ]);
 
       if (watchedMonitors.length === 0) {
@@ -100,6 +113,7 @@ export class MonitorMatcherService {
         const offerRes = parseResolution(monitor.resolution);
 
         const watched = watchedMonitors.find((w) => {
+          if (!modelMatches(monitor.model, w.model)) return false;
           if (!sizeInRange(offerSize, w.sizeInchesMin ?? null, w.sizeInchesMax ?? null)) return false;
           if (!resolutionInRange(offerRes, w.resolutionMin, w.resolutionMax)) return false;
           return true;
@@ -112,7 +126,7 @@ export class MonitorMatcherService {
             maxAllowedPrice: 0,
             actualPrice: 0,
             isMatch: false,
-            reason: `Nie ma w bazie obserwowanych (wielkość/rozdzielczość) [${amount} szt.]`,
+            reason: `Nie ma w bazie obserwowanych (model/wielkość/rozdzielczość) [${amount} szt.]`,
           });
           continue;
         }
@@ -134,6 +148,7 @@ export class MonitorMatcherService {
           monitor,
           watchedMonitor: {
             id: watched.id,
+            model: watched.model,
             sizeInchesMin: watched.sizeInchesMin,
             sizeInchesMax: watched.sizeInchesMax,
             resolutionMin: watched.resolutionMin,

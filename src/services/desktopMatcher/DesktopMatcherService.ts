@@ -72,8 +72,12 @@ export class DesktopMatcherService {
     this.currencyService = new CurrencyService();
   }
 
-  private async getGlobalMatchThreshold(): Promise<number> {
-    const row = await prisma.appSetting.findUnique({ where: { key: 'matchThreshold' } });
+  private async getMatchThreshold(): Promise<number> {
+    const [desktopRow, globalRow] = await Promise.all([
+      prisma.appSetting.findUnique({ where: { key: 'matchThresholdDesktops' } }),
+      prisma.appSetting.findUnique({ where: { key: 'matchThreshold' } }),
+    ]);
+    const row = desktopRow ?? globalRow;
     if (!row?.value) return DEFAULT_THRESHOLD;
     const n = parseInt(row.value, 10);
     return Number.isNaN(n) ? DEFAULT_THRESHOLD : Math.min(100, Math.max(0, n));
@@ -83,7 +87,7 @@ export class DesktopMatcherService {
     try {
       const [watchedDesktops, thresholdPercent] = await Promise.all([
         prisma.watchedDesktop.findMany(),
-        this.getGlobalMatchThreshold(),
+        this.getMatchThreshold(),
       ]);
 
       if (watchedDesktops.length === 0) {

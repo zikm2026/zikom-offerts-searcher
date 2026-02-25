@@ -30,6 +30,7 @@ model WatchedLaptop {
 
 model WatchedMonitor {
   id            String   @id @default(uuid())
+  model         String?  // opcjonalnie: np. "Asus BE24A", "Lenovo T24d-10"; puste = wszystkie pasujące rozmiarem
   sizeInchesMin Float?   // np. 24
   sizeInchesMax Float?   // np. 27
   resolutionMin String?  // np. "1920x1080"

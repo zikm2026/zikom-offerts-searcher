@@ -397,16 +397,35 @@
       font-size: 24px;
       font-weight: 600;
     }
+
+    .chart-tabs {
+      display: flex;
+      gap: 4px;
+      margin-top: 20px;
+      border-bottom: 1px solid #e0e0e0;
+      padding-bottom: 0;
+    }
+    .chart-tab {
+      padding: 10px 18px;
+      border: 1px solid #e0e0e0;
+      border-bottom: none;
+      border-radius: 8px 8px 0 0;
+      background: #f5f5f5;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    .chart-tab:hover { background: #eee; }
+    .chart-tab.active { background: #fff; font-weight: 600; margin-bottom: -1px; padding-bottom: 11px; }
+    .chart-tab-panels { margin-top: 0; padding: 15px; border: 1px solid #e0e0e0; border-radius: 8px; background: #fff; }
+    .chart-tab-panel { display: none; }
+    .chart-tab-panel.active { display: block; }
+    .chart-tab-panel .threshold-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+    .chart-tab-panel .threshold-row input[type="number"] { width: 80px; padding: 8px; }
   </style>
 </head>
 <body>
   <div class="container">
     <h1>Panel Admina - Zikom Offers Searcher</h1>
-    <div class="stats-periods" style="margin-bottom: 20px;">
-      <button class="period-btn active" data-tab="laptops">Laptopy</button>
-      <button class="period-btn" data-tab="monitors">Monitory</button>
-      <button class="period-btn" data-tab="desktops">Komputery stacjonarne</button>
-    </div>
 
     <div class="stats-section">
       <h2>Statystyki Emaili</h2>
@@ -496,17 +515,6 @@
       <div id="message"></div>
     </div>
 
-    <div class="add-form" style="margin-bottom: 15px;">
-      <h2 style="margin-bottom: 10px;">Próg dopasowania</h2>
-      <p style="color: #666; font-size: 14px; margin-bottom: 10px;">Powiadomienie zostanie wysłane, gdy % laptopów w ofercie spełniających kryteria będzie &ge; tego progu (0–100).</p>
-      <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-        <label for="globalMatchThreshold">Dopasowanie (%)</label>
-        <input type="number" id="globalMatchThreshold" min="0" max="100" value="90" style="width: 80px; padding: 8px;">
-        <button type="button" id="saveMatchThresholdBtn" class="btn btn-primary">Zapisz</button>
-        <span id="matchThresholdStatus" style="font-size: 14px; color: #666;"></span>
-      </div>
-    </div>
-
     <div id="laptopsContainer">
       <div class="loading">Ładowanie...</div>
     </div>
@@ -517,6 +525,10 @@
         <h2>Dodaj obserwowany monitor</h2>
         <form id="addMonitorForm">
           <div class="form-grid">
+            <div class="form-group">
+              <label>Model (opcjonalnie)</label>
+              <input type="text" name="model" placeholder="np. Asus BE24A, Lenovo T24d-10; puste = wszystkie">
+            </div>
             <div class="form-group">
               <label>Wielkość od (cale)</label>
               <input type="number" name="sizeInchesMin" placeholder="np. 24" step="0.1" min="15" max="40">
@@ -671,6 +683,10 @@
         <input type="hidden" id="editMonitorId" name="id">
         <div class="form-grid">
           <div class="form-group">
+            <label>Model (opcjonalnie)</label>
+            <input type="text" id="editMonitorModel" name="model" placeholder="np. Asus BE24A; puste = wszystkie">
+          </div>
+          <div class="form-group">
             <label>Wielkość od (cale)</label>
             <input type="number" id="editMonitorSizeMin" name="sizeInchesMin" placeholder="np. 24" step="0.1" min="15" max="40">
           </div>
@@ -746,7 +762,7 @@
     const API_BASE = '/api/admin/laptops';
     const SETTINGS_API = '/api/admin/settings';
     let laptops = [];
-    let settings = { matchThreshold: 90 };
+    let settings = { matchThreshold: 90, matchThresholdLaptops: 90, matchThresholdMonitors: 90, matchThresholdDesktops: 90 };
     let addFormGraphicsCards = [];
     let editFormGraphicsCards = [];
 
@@ -777,7 +793,6 @@
         const data = await response.json();
         laptops = data.laptops || [];
         if (data.settings) settings = data.settings;
-        renderMatchThreshold();
         renderLaptops();
       } catch (error) {
         document.getElementById('laptopsContainer').innerHTML = 
@@ -855,9 +870,62 @@
       return div.innerHTML;
     }
 
-    function renderMatchThreshold() {
-      const el = document.getElementById('globalMatchThreshold');
-      if (el) el.value = settings.matchThreshold ?? 90;
+    function renderChartTabThresholds() {
+      const l = document.getElementById('thresholdLaptops');
+      const m = document.getElementById('thresholdMonitors');
+      const d = document.getElementById('thresholdDesktops');
+      if (l) l.value = settings.matchThresholdLaptops ?? settings.matchThreshold ?? 90;
+      if (m) m.value = settings.matchThresholdMonitors ?? settings.matchThreshold ?? 90;
+      if (d) d.value = settings.matchThresholdDesktops ?? settings.matchThreshold ?? 90;
+    }
+
+    function switchChartTab(tab) {
+      document.querySelectorAll('.chart-tab[data-chart-tab]').forEach(b => {
+        b.classList.toggle('active', b.getAttribute('data-chart-tab') === tab);
+      });
+      document.querySelectorAll('.chart-tab-panel').forEach(p => {
+        p.classList.toggle('active', p.id === 'chart-panel-' + tab);
+      });
+      document.getElementById('laptopsSection').style.display = tab === 'laptops' ? 'block' : 'none';
+      document.getElementById('monitorsSection').style.display = tab === 'monitors' ? 'block' : 'none';
+      document.getElementById('desktopsSection').style.display = tab === 'desktops' ? 'block' : 'none';
+      if (tab === 'monitors') loadMonitors();
+      if (tab === 'desktops') loadDesktops();
+    }
+
+    function attachChartTabListeners() {
+      document.querySelectorAll('.chart-tab[data-chart-tab]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const tab = btn.getAttribute('data-chart-tab');
+          if (tab) switchChartTab(tab);
+        });
+      });
+      async function saveThreshold(key, inputId, btnId, statusId) {
+        const input = document.getElementById(inputId);
+        const statusEl = document.getElementById(statusId);
+        const val = parseInt(input?.value, 10);
+        if (Number.isNaN(val) || val < 0 || val > 100) {
+          if (statusEl) statusEl.textContent = 'Wpisz liczbę 0–100';
+          return;
+        }
+        try {
+          const response = await fetch(SETTINGS_API, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ [key]: val })
+          });
+          if (!response.ok) { if (response.status === 401) window.location.reload(); return; throw new Error('Failed'); }
+          const data = await response.json();
+          if (data.settings) settings = data.settings;
+          if (statusEl) { statusEl.textContent = 'Zapisano.'; setTimeout(() => { statusEl.textContent = ''; }, 2000); }
+        } catch (err) {
+          if (statusEl) statusEl.textContent = 'Błąd zapisu';
+        }
+      }
+      document.getElementById('saveThresholdLaptops')?.addEventListener('click', () => saveThreshold('matchThresholdLaptops', 'thresholdLaptops', 'saveThresholdLaptops', 'thresholdLaptopsStatus'));
+      document.getElementById('saveThresholdMonitors')?.addEventListener('click', () => saveThreshold('matchThresholdMonitors', 'thresholdMonitors', 'saveThresholdMonitors', 'thresholdMonitorsStatus'));
+      document.getElementById('saveThresholdDesktops')?.addEventListener('click', () => saveThreshold('matchThresholdDesktops', 'thresholdDesktops', 'saveThresholdDesktops', 'thresholdDesktopsStatus'));
     }
 
     function renderGraphicsCardsList(listId, hiddenId, items) {
@@ -904,35 +972,6 @@
     document.getElementById('editGraphicsCardAddBtn').addEventListener('click', addGraphicsCardEditForm);
     document.getElementById('editGraphicsCardInput').addEventListener('keydown', (e) => {
       if (e.key === 'Enter') { e.preventDefault(); addGraphicsCardEditForm(); }
-    });
-
-    document.getElementById('saveMatchThresholdBtn').addEventListener('click', async () => {
-      const input = document.getElementById('globalMatchThreshold');
-      const statusEl = document.getElementById('matchThresholdStatus');
-      const val = parseInt(input.value, 10);
-      if (Number.isNaN(val) || val < 0 || val > 100) {
-        statusEl.textContent = 'Wpisz liczbę 0–100';
-        return;
-      }
-      try {
-        const response = await fetch(SETTINGS_API, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({ matchThreshold: val })
-        });
-        if (!response.ok) {
-          if (response.status === 401) { window.location.reload(); return; }
-          throw new Error('Failed to save');
-        }
-        const data = await response.json();
-        if (data.settings) settings = data.settings;
-        statusEl.textContent = 'Zapisano.';
-        setTimeout(() => { statusEl.textContent = ''; }, 2000);
-      } catch (err) {
-        statusEl.textContent = 'Błąd zapisu';
-        console.error(err);
-      }
     });
 
     document.getElementById('addLaptopForm').addEventListener('submit', async (e) => {
@@ -1175,12 +1214,48 @@
             <canvas id="barChart"></canvas>
           </div>
         </div>
+        <div class="chart-tabs" style="grid-column: 1 / -1;">
+          <button type="button" class="chart-tab active" data-chart-tab="laptops">Laptopy</button>
+          <button type="button" class="chart-tab" data-chart-tab="monitors">Monitory</button>
+          <button type="button" class="chart-tab" data-chart-tab="desktops">Komputery stacjonarne</button>
+        </div>
+        <div class="chart-tab-panels" style="grid-column: 1 / -1;">
+          <div id="chart-panel-laptops" class="chart-tab-panel active">
+            <p style="color: #666; font-size: 14px; margin: 0;">Próg dopasowania dla laptopów: powiadomienie gdy % szt. spełniających kryteria &ge; progu (0–100).</p>
+            <div class="threshold-row">
+              <label for="thresholdLaptops">Próg (%)</label>
+              <input type="number" id="thresholdLaptops" min="0" max="100" value="90">
+              <button type="button" id="saveThresholdLaptops" class="btn btn-primary">Zapisz</button>
+              <span id="thresholdLaptopsStatus" style="font-size: 14px; color: #666;"></span>
+            </div>
+          </div>
+          <div id="chart-panel-monitors" class="chart-tab-panel">
+            <p style="color: #666; font-size: 14px; margin: 0;">Próg dopasowania dla monitorów (0–100).</p>
+            <div class="threshold-row">
+              <label for="thresholdMonitors">Próg (%)</label>
+              <input type="number" id="thresholdMonitors" min="0" max="100" value="90">
+              <button type="button" id="saveThresholdMonitors" class="btn btn-primary">Zapisz</button>
+              <span id="thresholdMonitorsStatus" style="font-size: 14px; color: #666;"></span>
+            </div>
+          </div>
+          <div id="chart-panel-desktops" class="chart-tab-panel">
+            <p style="color: #666; font-size: 14px; margin: 0;">Próg dopasowania dla komputerów stacjonarnych (0–100).</p>
+            <div class="threshold-row">
+              <label for="thresholdDesktops">Próg (%)</label>
+              <input type="number" id="thresholdDesktops" min="0" max="100" value="90">
+              <button type="button" id="saveThresholdDesktops" class="btn btn-primary">Zapisz</button>
+              <span id="thresholdDesktopsStatus" style="font-size: 14px; color: #666;"></span>
+            </div>
+          </div>
+        </div>
       `;
       
       container.innerHTML = html;
       
       renderPieChart(stats);
       renderBarChart(stats);
+      renderChartTabThresholds();
+      attachChartTabListeners();
     }
 
     function renderPieChart(stats) {
@@ -1280,17 +1355,6 @@
       });
     }
 
-    function switchTab(tab) {
-      document.querySelectorAll('[data-tab]').forEach(b => {
-        b.classList.toggle('active', b.getAttribute('data-tab') === tab);
-      });
-      document.getElementById('laptopsSection').style.display = tab === 'laptops' ? 'block' : 'none';
-      document.getElementById('monitorsSection').style.display = tab === 'monitors' ? 'block' : 'none';
-      document.getElementById('desktopsSection').style.display = tab === 'desktops' ? 'block' : 'none';
-      if (tab === 'monitors') loadMonitors();
-      if (tab === 'desktops') loadDesktops();
-    }
-
     let monitors = [], desktops = [];
 
     async function loadMonitors() {
@@ -1304,11 +1368,12 @@
           container.innerHTML = '<div class="empty-state"><p>Brak monitorów. Dodaj pierwszy uzywajac formularza powyzej.</p></div>';
           return;
         }
-        let html = '<div class="table-wrapper"><table class="laptops-table"><thead><tr><th>Wielkosc (cale)</th><th>Rozdzielczosc</th><th>Maks. cena</th><th>Akcje</th></tr></thead><tbody>';
+        let html = '<div class="table-wrapper"><table class="laptops-table"><thead><tr><th>Model</th><th>Wielkosc (cale)</th><th>Rozdzielczosc</th><th>Maks. cena</th><th>Akcje</th></tr></thead><tbody>';
         monitors.forEach(m => {
+          const model = (m.model && m.model.trim()) ? escapeHtml(m.model) : '<em>wszystkie</em>';
           const size = (m.sizeInchesMin != null || m.sizeInchesMax != null) ? (m.sizeInchesMin || '?') + ' - ' + (m.sizeInchesMax || '?') : '-';
           const res = [m.resolutionMin, m.resolutionMax].filter(Boolean).join(' - ') || '-';
-          html += `<tr><td>${escapeHtml(size)}</td><td>${escapeHtml(res)}</td><td>${escapeHtml(m.maxPrice || '-')}</td><td><button class="btn btn-secondary btn-small" data-edit-monitor="${m.id}">Edytuj</button> <button class="btn btn-danger btn-small" data-delete-monitor="${m.id}">Usun</button></td></tr>`;
+          html += `<tr><td>${model}</td><td>${escapeHtml(size)}</td><td>${escapeHtml(res)}</td><td>${escapeHtml(m.maxPrice || '-')}</td><td><button class="btn btn-secondary btn-small" data-edit-monitor="${m.id}">Edytuj</button> <button class="btn btn-danger btn-small" data-delete-monitor="${m.id}">Usun</button></td></tr>`;
         });
         html += '</tbody></table></div>';
         container.innerHTML = html;
@@ -1381,6 +1446,7 @@
       const m = monitors.find(x => x.id === id);
       if (!m) return;
       document.getElementById('editMonitorId').value = m.id;
+      document.getElementById('editMonitorModel').value = m.model || '';
       document.getElementById('editMonitorSizeMin').value = m.sizeInchesMin != null ? m.sizeInchesMin : '';
       document.getElementById('editMonitorSizeMax').value = m.sizeInchesMax != null ? m.sizeInchesMax : '';
       document.getElementById('editMonitorResMin').value = m.resolutionMin || '';
@@ -1418,6 +1484,7 @@
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
           body: JSON.stringify({
+            model: fd.get('model') || null,
             sizeInchesMin: fd.get('sizeInchesMin') ? parseFloat(fd.get('sizeInchesMin')) : null,
             sizeInchesMax: fd.get('sizeInchesMax') ? parseFloat(fd.get('sizeInchesMax')) : null,
             resolutionMin: fd.get('resolutionMin') || null,
@@ -1478,6 +1545,7 @@
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
           body: JSON.stringify({
+            model: fd.get('model') || null,
             sizeInchesMin: fd.get('sizeInchesMin') ? parseFloat(fd.get('sizeInchesMin')) : null,
             sizeInchesMax: fd.get('sizeInchesMax') ? parseFloat(fd.get('sizeInchesMax')) : null,
             resolutionMin: fd.get('resolutionMin') || null,
@@ -1522,13 +1590,6 @@
 
     document.addEventListener('DOMContentLoaded', () => {
       loadStats('1d');
-      
-      document.querySelectorAll('[data-tab]').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const tab = btn.getAttribute('data-tab');
-          if (tab) switchTab(tab);
-        });
-      });
 
       document.querySelectorAll('.period-btn').forEach(btn => {
         if (btn.getAttribute('data-period')) {

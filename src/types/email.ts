@@ -84,7 +84,7 @@ export interface DesktopData {
 
 export interface MonitorMatchResult {
   monitor: MonitorSpec;
-  watchedMonitor: { id: string; sizeInchesMin?: number | null; sizeInchesMax?: number | null; resolutionMin?: string | null; resolutionMax?: string | null; maxPrice?: string | null };
+  watchedMonitor: { id: string; model?: string | null; sizeInchesMin?: number | null; sizeInchesMax?: number | null; resolutionMin?: string | null; resolutionMax?: string | null; maxPrice?: string | null };
   maxAllowedPrice: number;
   actualPrice: number;
   isMatch: boolean;

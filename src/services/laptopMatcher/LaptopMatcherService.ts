@@ -14,10 +14,12 @@ export class LaptopMatcherService {
     this.currencyService = new CurrencyService();
   }
 
-  private async getGlobalMatchThreshold(): Promise<number> {
-    const row = await prisma.appSetting.findUnique({
-      where: { key: 'matchThreshold' },
-    });
+  private async getMatchThreshold(): Promise<number> {
+    const [laptopRow, globalRow] = await Promise.all([
+      prisma.appSetting.findUnique({ where: { key: 'matchThresholdLaptops' } }),
+      prisma.appSetting.findUnique({ where: { key: 'matchThreshold' } }),
+    ]);
+    const row = laptopRow ?? globalRow;
     if (!row?.value) return DEFAULT_THRESHOLD;
     const n = parseInt(row.value, 10);
     return Number.isNaN(n) ? DEFAULT_THRESHOLD : Math.min(100, Math.max(0, n));
@@ -27,7 +29,7 @@ export class LaptopMatcherService {
     try {
       const [watchedLaptops, thresholdPercent] = await Promise.all([
         prisma.watchedLaptop.findMany(),
-        this.getGlobalMatchThreshold(),
+        this.getMatchThreshold(),
       ]);
 
       if (watchedLaptops.length === 0) {
