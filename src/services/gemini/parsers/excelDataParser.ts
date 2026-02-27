@@ -18,6 +18,37 @@ interface RawExcelResponse {
   totalQuantity?: number;
 }
 
+function tryRepairTruncatedJson(jsonStr: string): string {
+  let s = jsonStr.trim();
+  s = s.replace(/,(\s*[\]}])/g, '$1');
+  const stack: string[] = [];
+  let inString = false;
+  let escape = false;
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i];
+    if (inString) {
+      if (escape) {
+        escape = false;
+        continue;
+      }
+      if (c === '\\') {
+        escape = true;
+        continue;
+      }
+      if (c === '"') inString = false;
+      continue;
+    }
+    if (c === '"') {
+      inString = true;
+      continue;
+    }
+    if (c === '{') stack.push('}');
+    else if (c === '[') stack.push(']');
+    else if (c === '}' || c === ']') stack.pop();
+  }
+  return s + stack.reverse().join('');
+}
+
 function parseLaptopsArray(parsed: RawExcelResponse): LaptopSpec[] {
   return (parsed.laptops || []).map((laptop: RawLaptop) => ({
     model: laptop.model || undefined,
@@ -36,7 +67,19 @@ export function parseExcelResponse(text: string, logLabel: string = 'Gemini'): E
       throw new Error('No JSON found in Gemini response');
     }
 
-    const parsed: RawExcelResponse = JSON.parse(jsonMatch[0]);
+    let jsonStr = jsonMatch[0];
+    let parsed: RawExcelResponse;
+    try {
+      parsed = JSON.parse(jsonStr) as RawExcelResponse;
+    } catch {
+      jsonStr = tryRepairTruncatedJson(jsonStr);
+      try {
+        parsed = JSON.parse(jsonStr) as RawExcelResponse;
+        logger.warn('Odpowiedź Gemini była ucięta lub zepsuta – naprawiono JSON i kontynuowano.');
+      } catch {
+        throw new Error('Invalid JSON (repair failed)');
+      }
+    }
     const laptops = parseLaptopsArray(parsed);
     const totalPrice = normalizePriceFromGemini(parsed.totalPrice);
     const totalQuantity = Math.max(0, Number(parsed.totalQuantity) || laptops.length);

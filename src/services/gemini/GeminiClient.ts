@@ -11,7 +11,7 @@ export class GeminiClient {
     this.model = genAI.getGenerativeModel({
       model: config.model,
       generationConfig: {
-        maxOutputTokens: 8192,
+        maxOutputTokens: 16384,
       },
     });
   }

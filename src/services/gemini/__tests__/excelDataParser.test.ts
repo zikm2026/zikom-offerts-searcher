@@ -54,6 +54,20 @@ describe('gemini excelDataParser', () => {
       expect(result.laptops[0].amount).toBeUndefined();
       expect(result.laptops[1].amount).toBeUndefined();
     });
+
+    it('repairs truncated JSON (missing closing ] and })', () => {
+      const truncated = `{"laptops":[{"model":"Dell 7430","ram":"16 GB","storage":"512 GB","price":"400 EUR"}`;
+      const result = parseExcelResponse(truncated);
+      expect(result.laptops).toHaveLength(1);
+      expect(result.laptops[0].model).toBe('Dell 7430');
+    });
+
+    it('repairs trailing comma before ]', () => {
+      const withTrailingComma = `{"laptops":[{"model":"X","ram":"8 GB","storage":"256 GB"},]}`;
+      const result = parseExcelResponse(withTrailingComma);
+      expect(result.laptops).toHaveLength(1);
+      expect(result.laptops[0].model).toBe('X');
+    });
   });
 
   describe('parseEmailContentResponse', () => {
